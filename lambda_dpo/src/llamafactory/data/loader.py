@@ -297,7 +297,8 @@ def _get_preprocessed_dataset(
     )
     
     # Get column names from the peeked example
-    column_names = list(first_example.keys())
+    # `column_names` is lazily available and costs O(1); prefer it for completeness
+    column_names = list(dataset.column_names)
     kwargs = {}
     if not data_args.streaming:
         kwargs = dict(
