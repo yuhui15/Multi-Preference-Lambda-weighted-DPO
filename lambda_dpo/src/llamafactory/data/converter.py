@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 import os
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -117,6 +118,76 @@ class AlpacaDatasetConverter(DatasetConverter):
 
 
 @dataclass
+class UltrafeedbackDatasetConverter(DatasetConverter):
+    default_rating: float = 1.0
+    
+    def __call__(self, example: dict[str, Any]) -> dict[str, Any]:
+        prompt = [{"role": Role.USER.value, "content": example[self.dataset_attr.prompt]}]
+        
+        # Extract completions and their annotations
+        responses = []
+        preference_data = {
+            "helpfulness": [],
+            "honesty": [],
+            "instruction_following": [],
+            "truthfulness": []
+        }
+        
+        if self.dataset_attr.completions and isinstance(example[self.dataset_attr.completions], list):
+            for completion_idx, completion in enumerate(example[self.dataset_attr.completions]):
+                # Extract the response text
+                response_text = completion.get("response", "")
+                responses.append({"role": Role.ASSISTANT.value, "content": response_text})
+                
+                # Extract ratings from annotations
+                annotations = completion.get("annotations", {})
+                
+                # Extract rating for each dimension
+                for dimension in ["helpfulness", "honesty", "instruction_following", "truthfulness"]:
+                    if dimension in annotations and "Rating" in annotations[dimension]:
+                        try:
+                            rating = float(annotations[dimension]["Rating"])
+                            preference_data[dimension].append(rating)
+                        except (ValueError, TypeError):
+                            # Default rating if parsing fails
+                            preference_data[dimension].append(self.default_rating)
+                            logger.warning_rank0(
+                                f"Failed to parse {dimension} rating for completion {completion_idx}: {annotations[dimension].get('Rating')}, using default value {self.default_rating}"
+                            )
+                    else:
+                        # Default rating if not found
+                        preference_data[dimension].append(self.default_rating)
+        
+        # Validate that all dimensions have the same number of ratings as responses
+        num_responses = len(responses)
+        for dimension, ratings in preference_data.items():
+            if len(ratings) != num_responses:
+                missing_count = max(0, num_responses - len(ratings))
+                excess_count = max(0, len(ratings) - num_responses)
+                logger.warning_rank0(
+                    f"Mismatch in {dimension} ratings: expected {num_responses} ratings, got {len(ratings)}. "
+                    f"Missing: {missing_count}, Excess: {excess_count}. Using default value {self.default_rating} for missing ratings."
+                )
+                # Pad with default ratings if needed
+                while len(ratings) < num_responses:
+                    ratings.append(self.default_rating)
+                # Truncate if too many
+                preference_data[dimension] = ratings[:num_responses]
+        
+        output = {
+            "_prompt": prompt,
+            "_response": responses,
+            "_system": example[self.dataset_attr.system] if self.dataset_attr.system else "",
+            "_tools": example[self.dataset_attr.tools] if self.dataset_attr.tools else "",
+            "_images": self._find_medias(example[self.dataset_attr.images]) if self.dataset_attr.images else None,
+            "_videos": self._find_medias(example[self.dataset_attr.videos]) if self.dataset_attr.videos else None,
+            "_audios": self._find_medias(example[self.dataset_attr.audios]) if self.dataset_attr.audios else None,
+            "_preference_data": preference_data if responses else None,
+        }
+        return output
+
+
+@dataclass
 class SharegptDatasetConverter(DatasetConverter):
     def __call__(self, example: dict[str, Any]) -> dict[str, Any]:
         tag_mapping = {
@@ -215,6 +286,7 @@ class SharegptDatasetConverter(DatasetConverter):
 DATASET_CONVERTERS = {
     "alpaca": AlpacaDatasetConverter,
     "sharegpt": SharegptDatasetConverter,
+    "ultrafeedback": UltrafeedbackDatasetConverter,
 }
 
 
@@ -251,7 +323,11 @@ def align_dataset(
     _videos: []
     _audios: []
     """
-    column_names = list(next(iter(dataset)).keys())
+    # Get column names without consuming the first example
+    dataset_iter = iter(dataset)
+    dataset_iter_copy, dataset_iter = itertools.tee(dataset_iter)
+    first_example = next(dataset_iter_copy)
+    column_names = list(first_example.keys())
     kwargs = {}
     if not data_args.streaming:
         kwargs = dict(

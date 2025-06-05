@@ -26,6 +26,7 @@ from .data_utils import get_dataset_module, merge_dataset, read_cloud_json, spli
 from .parser import get_dataset_list
 from .processor import (
     FeedbackDatasetProcessor,
+    ListwiseDatasetProcessor,
     PackedSupervisedDatasetProcessor,
     PairwiseDatasetProcessor,
     PretrainDatasetProcessor,
@@ -187,6 +188,25 @@ def _get_merged_dataset(
         return merge_dataset(list(datasets.values()), data_args, seed=training_args.seed)
 
 
+def _peek_first_example(dataset: Union["Dataset", "IterableDataset"]) -> Optional[dict]:
+    """Safely peek at the first example without consuming it from streaming datasets."""
+    from datasets import IterableDataset
+    
+    if dataset is None:
+        return None
+        
+    try:
+        if isinstance(dataset, IterableDataset):
+            # Use take(1) for IterableDataset to avoid consuming from the main iterator
+            first_examples = list(dataset.take(1))
+            return first_examples[0] if first_examples else None
+        else:
+            # For regular Dataset, we can safely access by index
+            return dataset[0] if len(dataset) > 0 else None
+    except (StopIteration, IndexError):
+        return None
+
+
 def _get_dataset_processor(
     data_args: "DataArguments",
     stage: Literal["pt", "sft", "rm", "ppo", "kto"],
@@ -194,6 +214,8 @@ def _get_dataset_processor(
     tokenizer: "PreTrainedTokenizer",
     processor: Optional["ProcessorMixin"],
     do_generate: bool = False,
+    dataset: Optional[Union["Dataset", "IterableDataset"]] = None,
+    peeked_example: Optional[dict] = None,
 ) -> "DatasetProcessor":
     r"""Return the corresponding dataset processor."""
     if stage == "pt":
@@ -218,7 +240,26 @@ def _get_dataset_processor(
             dataset_processor_class = SupervisedDatasetProcessor
 
     elif stage == "rm":
-        dataset_processor_class = PairwiseDatasetProcessor
+        # Check if this is a listwise dataset by examining the first example
+        first_example = peeked_example or _peek_first_example(dataset)
+        if first_example is not None:
+            # If _response has more than 2 items or has _preference_data, it's listwise
+            if "_preference_data" in first_example and first_example.get("_preference_data"):
+                dataset_processor_class = ListwiseDatasetProcessor
+            elif "_response" in first_example:
+                response = first_example["_response"]
+                if isinstance(response, list) and len(response) > 2:
+                    # Validate that responses are dicts as expected
+                    if all(isinstance(r, dict) for r in response):
+                        dataset_processor_class = ListwiseDatasetProcessor
+                    else:
+                        dataset_processor_class = PairwiseDatasetProcessor
+                else:
+                    dataset_processor_class = PairwiseDatasetProcessor
+            else:
+                dataset_processor_class = PairwiseDatasetProcessor
+        else:
+            dataset_processor_class = PairwiseDatasetProcessor
     elif stage == "kto":
         dataset_processor_class = FeedbackDatasetProcessor
     else:
@@ -241,10 +282,22 @@ def _get_preprocessed_dataset(
     if dataset is None:
         return None
 
+    # Safely peek at the first example to get column names and for logging
+    first_example = _peek_first_example(dataset)
+    if first_example is None:
+        if stage == "pt":
+            raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
+        else:
+            raise RuntimeError("Cannot find valid samples, check `data/README.md` for the data format.")
+
     dataset_processor = _get_dataset_processor(
-        data_args, stage, template, tokenizer, processor, do_generate=(training_args.predict_with_generate and is_eval)
+        data_args, stage, template, tokenizer, processor, 
+        do_generate=(training_args.predict_with_generate and is_eval), 
+        dataset=dataset, peeked_example=first_example
     )
-    column_names = list(next(iter(dataset)).keys())
+    
+    # Get column names from the peeked example
+    column_names = list(first_example.keys())
     kwargs = {}
     if not data_args.streaming:
         kwargs = dict(
@@ -262,14 +315,9 @@ def _get_preprocessed_dataset(
     )
 
     if training_args.should_log:
-        try:
-            print("eval example:" if is_eval else "training example:")
-            dataset_processor.print_data_example(next(iter(dataset)))
-        except StopIteration:
-            if stage == "pt":
-                raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
-            else:
-                raise RuntimeError("Cannot find valid samples, check `data/README.md` for the data format.")
+        print("eval example:" if is_eval else "training example:")
+        # Use the peeked example for logging instead of consuming again
+        dataset_processor.print_data_example(first_example)
 
     return dataset
 
