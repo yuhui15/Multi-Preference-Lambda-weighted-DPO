@@ -527,6 +527,16 @@
       "rejected": "rejected"
     }
   },
+  "ultrafeedback_listwise": {
+    "hf_hub_url": "openbmb/UltraFeedback",
+    "ms_hub_url": "OpenBmB/UltraFeedback",
+    "ranking": true,
+    "formatting": "ultrafeedback",
+    "columns": {
+      "prompt": "instruction",
+      "completions": "completions"
+    }
+  },
   "coig_p": {
     "hf_hub_url": "m-a-p/COIG-P",
     "ranking": true,

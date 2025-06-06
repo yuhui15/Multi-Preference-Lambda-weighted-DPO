@@ -47,6 +47,8 @@ class DatasetAttr:
     chosen: Optional[str] = None
     rejected: Optional[str] = None
     kto_tag: Optional[str] = None
+    # listwise columns
+    completions: Optional[str] = None
     # alpaca columns
     prompt: Optional[str] = "instruction"
     query: Optional[str] = "input"
@@ -79,7 +81,7 @@ class DatasetAttr:
 
         if "columns" in attr:
             column_names = ["prompt", "query", "response", "history", "messages", "system", "tools"]
-            column_names += ["images", "videos", "audios", "chosen", "rejected", "kto_tag"]
+            column_names += ["images", "videos", "audios", "chosen", "rejected", "kto_tag", "completions"]
             for column_name in column_names:
                 self.set_attr(column_name, attr["columns"])
 
