@@ -17,6 +17,7 @@ import os
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
+import numpy as np
 
 from ..extras import logging
 from .data_utils import Role
@@ -120,70 +121,66 @@ class AlpacaDatasetConverter(DatasetConverter):
 @dataclass
 class UltrafeedbackDatasetConverter(DatasetConverter):
     default_rating: float = 1.0
-    
+
+    def _convert_ratings_to_preferences(self, ratings: list[float], temperature: float = 1.0) -> list[float]:
+        """Convert ratings to normalized preference distribution using softmax."""
+        if not ratings:
+            return []
+        
+        if temperature <= 0:
+            raise ValueError(f"Temperature must be positive, got {temperature}")
+        
+        ratings_array = np.array(ratings)
+        scaled_ratings = ratings_array / temperature
+        exp_ratings = np.exp(scaled_ratings - np.max(scaled_ratings))
+        preferences = exp_ratings / np.sum(exp_ratings)
+        return preferences.tolist()
+
     def __call__(self, example: dict[str, Any]) -> dict[str, Any]:
         prompt = [{"role": Role.USER.value, "content": example[self.dataset_attr.prompt]}]
         
-        # Extract completions and their annotations
-        responses = []
-        preference_data = {
-            "helpfulness": [],
-            "honesty": [],
-            "instruction_following": [],
-            "truthfulness": []
-        }
-        
-        if self.dataset_attr.completions and isinstance(example[self.dataset_attr.completions], list):
-            for completion_idx, completion in enumerate(example[self.dataset_attr.completions]):
-                # Extract the response text
-                response_text = completion.get("response", "")
-                responses.append({"role": Role.ASSISTANT.value, "content": response_text})
-                
-                # Extract ratings from annotations
-                annotations = completion.get("annotations", {})
-                
-                # Extract rating for each dimension
-                for dimension in ["helpfulness", "honesty", "instruction_following", "truthfulness"]:
-                    if dimension in annotations and "Rating" in annotations[dimension]:
-                        try:
-                            rating = float(annotations[dimension]["Rating"])
-                            preference_data[dimension].append(rating)
-                        except (ValueError, TypeError):
-                            # Default rating if parsing fails
-                            preference_data[dimension].append(self.default_rating)
-                            logger.warning_rank0(
-                                f"Failed to parse {dimension} rating for completion {completion_idx}: {annotations[dimension].get('Rating')}, using default value {self.default_rating}"
-                            )
-                    else:
-                        # Default rating if not found
-                        preference_data[dimension].append(self.default_rating)
-        
-        # Validate that all dimensions have the same number of ratings as responses
-        num_responses = len(responses)
-        for dimension, ratings in preference_data.items():
-            if len(ratings) != num_responses:
-                missing_count = max(0, num_responses - len(ratings))
-                excess_count = max(0, len(ratings) - num_responses)
-                logger.warning_rank0(
-                    f"Mismatch in {dimension} ratings: expected {num_responses} ratings, got {len(ratings)}. "
-                    f"Missing: {missing_count}, Excess: {excess_count}. Using default value {self.default_rating} for missing ratings."
-                )
-                # Pad with default ratings if needed
-                while len(ratings) < num_responses:
-                    ratings.append(self.default_rating)
-                # Truncate if too many
-                preference_data[dimension] = ratings[:num_responses]
-        
         output = {
             "_prompt": prompt,
-            "_response": responses,
             "_system": example[self.dataset_attr.system] if self.dataset_attr.system else "",
             "_tools": example[self.dataset_attr.tools] if self.dataset_attr.tools else "",
             "_images": self._find_medias(example[self.dataset_attr.images]) if self.dataset_attr.images else None,
             "_videos": self._find_medias(example[self.dataset_attr.videos]) if self.dataset_attr.videos else None,
             "_audios": self._find_medias(example[self.dataset_attr.audios]) if self.dataset_attr.audios else None,
-            "_preference_data": preference_data if responses else None,
+            "_pi_target": {},
         }
+
+        if self.dataset_attr.completions and isinstance(example[self.dataset_attr.completions], list):
+            completions = example[self.dataset_attr.completions]
+            dimensions = ["helpfulness", "honesty", "instruction_following", "truthfulness"]
+            
+            for dimension in dimensions:
+                output[dimension] = []
+
+            for completion in completions:
+                response_text = completion.get("response", "")
+                model = completion.get("model", "unknown")
+                annotations = completion.get("annotations", {})
+
+                for dimension in dimensions:
+                    rating = self.default_rating
+                    if dimension in annotations and "Rating" in annotations[dimension]:
+                        try:
+                            rating = float(annotations[dimension]["Rating"])
+                        except (ValueError, TypeError):
+                            logger.warning_rank0(
+                                f"Failed to parse {dimension} rating: {annotations[dimension].get('Rating')}, using default."
+                            )
+                    
+                    output[dimension].append({
+                        "model": model,
+                        "content": response_text,
+                        "score": rating,
+                    })
+
+            for dimension in dimensions:
+                scores = [resp["score"] for resp in output[dimension]]
+                output["_pi_target"][dimension] = self._convert_ratings_to_preferences(scores)
+
         return output
 
 

@@ -31,23 +31,6 @@ logger = logging.get_logger(__name__)
 class ListwiseDatasetProcessor(DatasetProcessor):
     """Process datasets with multiple responses and multi-dimensional preference ratings."""
     
-    def _convert_ratings_to_preferences(self, ratings: list[float], temperature: float = 1.0) -> list[float]:
-        """Convert ratings to normalized preference distribution using softmax."""
-        # Handle edge cases
-        if not ratings:
-            return []
-        
-        if temperature <= 0:
-            raise ValueError(f"Temperature must be positive, got {temperature}")
-        
-        ratings_array = np.array(ratings)
-        # Apply temperature scaling
-        scaled_ratings = ratings_array / temperature
-        # Compute softmax
-        exp_ratings = np.exp(scaled_ratings - np.max(scaled_ratings))  # Subtract max for numerical stability
-        preferences = exp_ratings / np.sum(exp_ratings)
-        return preferences.tolist()
-    
     def _encode_listwise_example(
         self,
         prompt: list[dict[str, str]],
@@ -133,24 +116,19 @@ class ListwiseDatasetProcessor(DatasetProcessor):
         model_inputs = defaultdict(list)
         
         for i in range(len(examples["_prompt"])):
-            # Validate example
             if len(examples["_prompt"][i]) % 2 != 1:
-                logger.warning_rank0(
-                    f"Dropped example with invalid prompt length: {examples['_prompt'][i]}"
-                )
+                logger.warning_rank0(f"Dropped example with invalid prompt: {examples['_prompt'][i]}")
                 continue
-            
-            responses = examples["_response"][i]
+
+            # Use 'helpfulness' as the default source for responses
+            responses = examples["helpfulness"][i]
             if not isinstance(responses, list) or len(responses) < 2:
-                logger.warning_rank0(
-                    f"Dropped example with insufficient responses: {len(responses) if isinstance(responses, list) else 'not a list'}"
-                )
+                logger.warning_rank0(f"Dropped example with insufficient responses: {len(responses)}")
                 continue
-            
-            # Encode the listwise example
+
             encoded = self._encode_listwise_example(
                 prompt=examples["_prompt"][i],
-                responses=responses,
+                responses=[{"role": "assistant", "content": r["content"]} for r in responses],
                 system=examples["_system"][i],
                 tools=examples["_tools"][i],
                 images=examples["_images"][i] or [],
@@ -158,29 +136,11 @@ class ListwiseDatasetProcessor(DatasetProcessor):
                 audios=examples["_audios"][i] or [],
             )
             
-            # Process preference distributions if available
-            preference_dists = {}
-            if "_preference_data" in examples and examples["_preference_data"][i]:
-                pref_data = examples["_preference_data"][i]
-                
-                # Convert ratings to preference distributions for each dimension
-                for dimension in ["helpfulness", "honesty", "instruction_following", "truthfulness"]:
-                    if dimension in pref_data and pref_data[dimension]:
-                        ratings = pref_data[dimension]
-                        if len(ratings) == len(responses):
-                            preference_dists[dimension] = self._convert_ratings_to_preferences(ratings)
-                        else:
-                            logger.warning_rank0(
-                                f"Mismatched ratings and responses for {dimension}: "
-                                f"{len(ratings)} ratings vs {len(responses)} responses"
-                            )
-            
-            # Add to model inputs
             model_inputs["input_ids"].append(encoded["input_ids"])
             model_inputs["labels"].append(encoded["labels"])
             model_inputs["attention_masks"].append(encoded["attention_masks"])
             model_inputs["num_responses"].append(encoded["num_responses"])
-            model_inputs["preference_distributions"].append(preference_dists)
+            model_inputs["preference_distributions"].append(examples["_pi_target"][i])
             model_inputs["images"].append(examples["_images"][i])
             model_inputs["videos"].append(examples["_videos"][i])
             model_inputs["audios"].append(examples["_audios"][i])
