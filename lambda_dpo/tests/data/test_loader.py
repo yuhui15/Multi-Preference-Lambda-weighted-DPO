@@ -13,7 +13,14 @@
 # limitations under the License.
 
 import os
+from unittest.mock import Mock, patch
 
+import pytest
+from datasets import Dataset, IterableDataset
+
+from llamafactory.data.loader import _peek_first_example, _get_dataset_processor
+from llamafactory.data.processor import ListwiseDatasetProcessor, PairwiseDatasetProcessor
+from llamafactory.hparams import DataArguments
 from llamafactory.train.test_utils import load_dataset_module
 
 
@@ -54,3 +61,233 @@ def test_load_eval_data():
     dataset_module = load_dataset_module(eval_dataset=TINY_DATA, **TRAIN_ARGS)
     assert dataset_module.get("train_dataset") is not None
     assert dataset_module.get("eval_dataset") is not None
+
+
+def test_peek_first_example():
+    """Test _peek_first_example function with different dataset types."""
+    # Test with regular Dataset
+    data = [
+        {"prompt": "What is AI?", "response": "AI is artificial intelligence."},
+        {"prompt": "What is ML?", "response": "ML is machine learning."}
+    ]
+    dataset = Dataset.from_list(data)
+    
+    first_example = _peek_first_example(dataset)
+    assert first_example == data[0]
+    
+    # Test with empty Dataset
+    empty_dataset = Dataset.from_list([])
+    first_example = _peek_first_example(empty_dataset)
+    assert first_example is None
+    
+    # Test with None dataset
+    first_example = _peek_first_example(None)
+    assert first_example is None
+
+
+def test_peek_first_example_iterable():
+    """Test _peek_first_example with IterableDataset."""
+    def data_generator():
+        yield {"prompt": "What is AI?", "response": "AI is artificial intelligence."}
+        yield {"prompt": "What is ML?", "response": "ML is machine learning."}
+    
+    iterable_dataset = IterableDataset.from_generator(data_generator)
+    
+    first_example = _peek_first_example(iterable_dataset)
+    assert first_example == {"prompt": "What is AI?", "response": "AI is artificial intelligence."}
+
+
+def test_get_dataset_processor_pairwise():
+    """Test _get_dataset_processor returns PairwiseDatasetProcessor for pairwise data."""
+    data_args = DataArguments()
+    template = Mock()
+    tokenizer = Mock()
+    processor = Mock()
+    
+    # Mock dataset with pairwise structure
+    pairwise_example = {
+        "_prompt": [{"role": "user", "content": "What is AI?"}],
+        "_response": [
+            {"role": "assistant", "content": "AI is artificial intelligence."},
+            {"role": "assistant", "content": "AI stands for artificial intelligence."}
+        ]
+    }
+    
+    dataset_processor = _get_dataset_processor(
+        data_args=data_args,
+        stage="rm",
+        template=template,
+        tokenizer=tokenizer,
+        processor=processor,
+        peeked_example=pairwise_example
+    )
+    
+    assert isinstance(dataset_processor, PairwiseDatasetProcessor)
+
+
+def test_get_dataset_processor_listwise_with_preference_data():
+    """Test _get_dataset_processor returns ListwiseDatasetProcessor for data with preference_data."""
+    data_args = DataArguments()
+    template = Mock()
+    tokenizer = Mock()
+    processor = Mock()
+    
+    # Mock dataset with preference data
+    listwise_example = {
+        "_prompt": [{"role": "user", "content": "What is AI?"}],
+        "_response": [
+            {"role": "assistant", "content": "AI is artificial intelligence."},
+            {"role": "assistant", "content": "AI stands for artificial intelligence."}
+        ],
+        "_preference_data": {
+            "helpfulness": [4.0, 3.0],
+            "honesty": [5.0, 4.0]
+        }
+    }
+    
+    dataset_processor = _get_dataset_processor(
+        data_args=data_args,
+        stage="rm",
+        template=template,
+        tokenizer=tokenizer,
+        processor=processor,
+        peeked_example=listwise_example
+    )
+    
+    assert isinstance(dataset_processor, ListwiseDatasetProcessor)
+
+
+def test_get_dataset_processor_listwise_with_multiple_responses():
+    """Test _get_dataset_processor returns ListwiseDatasetProcessor for data with >2 responses."""
+    data_args = DataArguments()
+    template = Mock()
+    tokenizer = Mock()
+    processor = Mock()
+    
+    # Mock dataset with multiple responses (>2)
+    listwise_example = {
+        "_prompt": [{"role": "user", "content": "What is AI?"}],
+        "_response": [
+            {"role": "assistant", "content": "AI is artificial intelligence."},
+            {"role": "assistant", "content": "AI stands for artificial intelligence."},
+            {"role": "assistant", "content": "AI refers to artificial intelligence."}
+        ]
+    }
+    
+    dataset_processor = _get_dataset_processor(
+        data_args=data_args,
+        stage="rm",
+        template=template,
+        tokenizer=tokenizer,
+        processor=processor,
+        peeked_example=listwise_example
+    )
+    
+    assert isinstance(dataset_processor, ListwiseDatasetProcessor)
+
+
+def test_get_dataset_processor_invalid_responses():
+    """Test _get_dataset_processor handles invalid response structures."""
+    data_args = DataArguments()
+    template = Mock()
+    tokenizer = Mock()
+    processor = Mock()
+    
+    # Mock dataset with invalid response structure (not dicts)
+    invalid_example = {
+        "_prompt": [{"role": "user", "content": "What is AI?"}],
+        "_response": ["response1", "response2", "response3"]  # Strings instead of dicts
+    }
+    
+    dataset_processor = _get_dataset_processor(
+        data_args=data_args,
+        stage="rm",
+        template=template,
+        tokenizer=tokenizer,
+        processor=processor,
+        peeked_example=invalid_example
+    )
+    
+    # Should fall back to PairwiseDatasetProcessor
+    assert isinstance(dataset_processor, PairwiseDatasetProcessor)
+
+
+def test_get_dataset_processor_no_response_key():
+    """Test _get_dataset_processor handles missing _response key."""
+    data_args = DataArguments()
+    template = Mock()
+    tokenizer = Mock()
+    processor = Mock()
+    
+    # Mock dataset without _response key
+    no_response_example = {
+        "_prompt": [{"role": "user", "content": "What is AI?"}]
+    }
+    
+    dataset_processor = _get_dataset_processor(
+        data_args=data_args,
+        stage="rm",
+        template=template,
+        tokenizer=tokenizer,
+        processor=processor,
+        peeked_example=no_response_example
+    )
+    
+    # Should fall back to PairwiseDatasetProcessor
+    assert isinstance(dataset_processor, PairwiseDatasetProcessor)
+
+
+def test_get_dataset_processor_empty_example():
+    """Test _get_dataset_processor handles empty or None examples."""
+    data_args = DataArguments()
+    template = Mock()
+    tokenizer = Mock()
+    processor = Mock()
+    
+    # Test with None example
+    dataset_processor = _get_dataset_processor(
+        data_args=data_args,
+        stage="rm",
+        template=template,
+        tokenizer=tokenizer,
+        processor=processor,
+        peeked_example=None
+    )
+    
+    # Should fall back to PairwiseDatasetProcessor
+    assert isinstance(dataset_processor, PairwiseDatasetProcessor)
+    
+    # Test with empty example
+    dataset_processor = _get_dataset_processor(
+        data_args=data_args,
+        stage="rm",
+        template=template,
+        tokenizer=tokenizer,
+        processor=processor,
+        peeked_example={}
+    )
+    
+    # Should fall back to PairwiseDatasetProcessor
+    assert isinstance(dataset_processor, PairwiseDatasetProcessor)
+
+
+def test_get_dataset_processor_non_rm_stage():
+    """Test _get_dataset_processor for non-rm stages."""
+    data_args = DataArguments()
+    template = Mock()
+    tokenizer = Mock()
+    processor = Mock()
+    
+    from llamafactory.data.processor import SupervisedDatasetProcessor
+    
+    # For non-rm stages, should not use listwise/pairwise processors
+    dataset_processor = _get_dataset_processor(
+        data_args=data_args,
+        stage="sft",
+        template=template,
+        tokenizer=tokenizer,
+        processor=processor,
+        peeked_example={"_prompt": [{"role": "user", "content": "test"}]}
+    )
+    
+    assert isinstance(dataset_processor, SupervisedDatasetProcessor)
