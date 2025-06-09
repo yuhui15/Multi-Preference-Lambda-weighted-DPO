@@ -101,3 +101,13 @@ class ListwiseDatasetProcessor(DatasetProcessor):
                 model_inputs["pi_target"].extend(examples["_pi_target"][i][dimension])  # +4
 
         return model_inputs
+
+    def print_data_example(self, example: dict[str, list[int]]) -> None:
+        """Print a listwise data example to stdout."""
+        valid_labels = list(filter(lambda x: x != IGNORE_INDEX, example["labels"]))
+        print("input_ids:\n{}".format(example["input_ids"]))
+        print("inputs:\n{}".format(self.tokenizer.decode(example["input_ids"], skip_special_tokens=False)))
+        print("label_ids:\n{}".format(example["labels"]))
+        print(f"labels:\n{self.tokenizer.decode(valid_labels, skip_special_tokens=False)}")
+        if "pi_target" in example:
+            print("pi_target:\n{}".format(example["pi_target"]))
