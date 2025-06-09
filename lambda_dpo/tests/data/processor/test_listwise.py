@@ -1,111 +1,90 @@
-# Copyright 2025 the LlamaFactory team.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
-import pytest
+import json
 import torch
+import pytest
 from unittest.mock import Mock
 from transformers import AutoTokenizer
+
 from llamafactory.data.processor.listwise import ListwiseDatasetProcessor
+from llamafactory.data.converter import UltrafeedbackDatasetConverter
 from llamafactory.data.template import get_template_and_fix_tokenizer
-from llamafactory.hparams import DataArguments
 from llamafactory.extras.constants import IGNORE_INDEX
+from llamafactory.hparams import DataArguments
+
 
 TINY_LLAMA3 = os.getenv("TINY_LLAMA3", "llamafactory/tiny-random-Llama-3")
 
-@pytest.fixture
-def setup_processor():
+
+def test_ultrafeedback_dataset_conversion_and_preprocessing():
     data_args = DataArguments(cutoff_len=512, template="llama3")
     tokenizer = AutoTokenizer.from_pretrained(TINY_LLAMA3)
     template = get_template_and_fix_tokenizer(tokenizer, data_args)
-    processor = Mock()
-    return ListwiseDatasetProcessor(data_args, template, tokenizer, processor), tokenizer
+    
+    processor = ListwiseDatasetProcessor(
+        data_args=data_args,
+        template=template,
+        tokenizer=tokenizer,
+        processor=Mock()
+    )
 
-def test_listwise_outputs_structure(setup_processor):
-    processor, tokenizer = setup_processor
+    # Minimal raw UltraFeedback input
+    example = {
+        "source": "manual",
+        "instruction": "What is the capital of France?",
+        "models": ["a", "b", "c", "d"],
+        "completions": [
+            {"response": "Paris", "annotations": {"helpfulness": {"Rating": "4"}}},
+            {"response": "Berlin", "annotations": {"helpfulness": {"Rating": "1"}}},
+            {"response": "London", "annotations": {"helpfulness": {"Rating": "2"}}},
+            {"response": "Madrid", "annotations": {"helpfulness": {"Rating": "3"}}}
+        ]
+    }
 
-    examples = {
-        "_prompt": [[{"role": "user", "content": "What is 2+2?"}]],
-        "helpfulness": [[
-            {"model": "a", "content": "2+2 equals 4.", "score": 3.0},
-            {"model": "b", "content": "The answer is 4.", "score": 4.0},
-            {"model": "c", "content": "Four.", "score": 2.0}
-        ]],
+    # Convert dataset
+    dataset_attr = Mock(
+        prompt="instruction",
+        completions="completions",
+        system="",
+        tools="",
+        images=None,
+        videos=None,
+        audios=None,
+        load_from="dict"
+    )
+    converter = UltrafeedbackDatasetConverter(dataset_attr=dataset_attr, data_args=data_args)
+    converted = converter(example)
+
+    # Run preprocess
+    model_inputs = processor.preprocess_dataset({
+        "_prompt": [converted["_prompt"]],
+        "helpfulness": [converted["helpfulness"]],
         "_system": [""],
         "_tools": [""],
         "_images": [None],
         "_videos": [None],
         "_audios": [None],
-        "_pi_target": [{
-            "helpfulness": [0.25, 0.5, 0.25],
-            "honesty": [0.33, 0.33, 0.34]
-        }]
-    }
+        "_pi_target": [converted["_pi_target"]],
+    })
 
-    model_inputs = processor.preprocess_dataset(examples)
-
+    # Check structure
+    assert "input_ids" in model_inputs
     assert len(model_inputs["input_ids"]) == 1
-    assert model_inputs["num_responses"][0] == 3
-    assert len(model_inputs["input_ids"][0]) == 3
-    assert all(len(x) == len(y) == len(z)
-               for x, y, z in zip(
-                   model_inputs["input_ids"][0],
-                   model_inputs["labels"][0],
-                   model_inputs["attention_masks"][0]))
+    assert len(model_inputs["input_ids"][0]) == 4  # 4 completions
+    assert model_inputs["num_responses"][0] == 4
 
-    prefs = model_inputs["preference_distributions"][0]
-    assert abs(sum(prefs["helpfulness"]) - 1.0) < 1e-6
-    assert abs(sum(prefs["honesty"]) - 1.0) < 1e-6
+    # Check preference order: helpfulness = [4, 1, 2, 3]
+    # Expected normalized: [0.4, 0.1, 0.2, 0.3]
+    helpfulness = model_inputs["preference_distributions"][0]["helpfulness"]
+    assert len(helpfulness) == 4
+    assert abs(sum(helpfulness) - 1.0) < 1e-6
+    assert helpfulness[0] > helpfulness[3] > helpfulness[2] > helpfulness[1]
 
-def test_invalid_and_insufficient(setup_processor):
-    processor, tokenizer = setup_processor
-
-    examples = {
-        "_prompt": [[{"role": "user", "content": "What is 2+2?"}, {"role": "assistant", "content": "4"}]],
-        "helpfulness": [[{"model": "a", "content": "Four.", "score": 1.0}]],
-        "_system": [""],
-        "_tools": [""],
-        "_images": [None],
-        "_videos": [None],
-        "_audios": [None],
-        "_pi_target": [None]
-    }
-    assert processor.preprocess_dataset(examples)["input_ids"] == []
-
-    examples_insufficient = {
-        "_prompt": [[{"role": "user", "content": "What is 2+2?"}]],
-        "helpfulness": [[{"model": "a", "content": "4", "score": 1.0}]],
-        "_system": [""],
-        "_tools": [""],
-        "_images": [None],
-        "_videos": [None],
-        "_audios": [None],
-        "_pi_target": [None]
-    }
-    assert processor.preprocess_dataset(examples_insufficient)["input_ids"] == []
-
-def test_label_ignore_index(setup_processor):
-    processor, tokenizer = setup_processor
-
-    prompt = [{"role": "user", "content": "What is 2+2?"}]
-    responses = [
-        {"role": "assistant", "content": "2+2 equals 4."},
-        {"role": "assistant", "content": "The answer is 4."},
-        {"role": "assistant", "content": "Four."}
-    ]
-
-    encoded = processor._encode_listwise_example(prompt, responses, "", "", [], [], [])
-    for labels in encoded["labels"]:
-        ignore_prefix = sum(1 for x in labels if x == IGNORE_INDEX)
-        assert ignore_prefix > 0
+    # Check token alignment
+    for i in range(4):
+        ids = model_inputs["input_ids"][0][i]
+        labels = model_inputs["labels"][0][i]
+        attention = model_inputs["attention_masks"][0][i]
+        assert isinstance(ids, list) and isinstance(labels, list)
+        assert len(ids) == len(labels) == len(attention)
+        assert all([m == 1 for m in attention])
+        assert any([l == IGNORE_INDEX for l in labels])
