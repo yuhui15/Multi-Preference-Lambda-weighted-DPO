@@ -17,20 +17,22 @@ class ListwiseDatasetProcessor(DatasetProcessor):
         images: list[Any],
         videos: list[Any],
         audios: list[Any],
-    ) -> dict[str, Any]:
-        # Process prompt and get token ids
+    ) -> dict[str, list[list[int]]]:
+        """Encode a single listwise example and return tokenized sequences."""
         prompt_messages = self.template.mm_plugin.process_messages(prompt, images, videos, audios, self.processor)
         prompt_ids, _ = self.template.encode_oneturn(
             self.tokenizer, prompt_messages + [{"role": "assistant", "content": ""}], system, tools
         )
-        prompt_ids = prompt_ids[:-1] if prompt_ids and prompt_ids[-1] == self.tokenizer.eos_token_id else prompt_ids
+        if prompt_ids and prompt_ids[-1] == self.tokenizer.eos_token_id:
+            prompt_ids = prompt_ids[:-1]
         prompt_ids, _ = self.template.mm_plugin.process_token_ids(
             prompt_ids, None, images, videos, audios, self.tokenizer, self.processor
         )
 
-        # Encode each response and determine maximum response length
         all_input_ids, all_labels, all_attention_masks = [], [], []
         max_response_len = 0
+
+        # First pass: find max response length
         for response in responses:
             _, response_ids = self.template.encode_oneturn(
                 self.tokenizer,
@@ -65,37 +67,37 @@ class ListwiseDatasetProcessor(DatasetProcessor):
             all_attention_masks.append(attention_mask)
 
         return {
-            "input_ids": all_input_ids,
+            "input_ids": all_input_ids,             # List[List[int]] x 4
             "labels": all_labels,
             "attention_masks": all_attention_masks,
         }
 
     def preprocess_dataset(self, examples: dict[str, list[Any]]) -> dict[str, list[Any]]:
+        """Flatten a multi-dimensional preference dataset into DPO-compatible format."""
         model_inputs = defaultdict(list)
 
         for i in range(len(examples["_prompt"])):
             if len(examples["_prompt"][i]) % 2 != 1:
                 continue
-            responses = examples["helpfulness"][i]
-            if not isinstance(responses, list) or len(responses) < 2:
-                continue
 
-            encoded = self._encode_listwise_example(
-                prompt=examples["_prompt"][i],
-                responses=[{"role": "assistant", "content": r["content"]} for r in responses],
-                system=examples["_system"][i],
-                tools=examples["_tools"][i],
-                images=examples["_images"][i] or [],
-                videos=examples["_videos"][i] or [],
-                audios=examples["_audios"][i] or [],
-            )
+            for dimension in ["helpfulness", "honesty", "instruction_following", "truthfulness"]:
+                responses = examples[dimension][i]
+                if not isinstance(responses, list) or len(responses) != 4:
+                    continue  # skip if malformed
 
-            model_inputs["input_ids"].extend(encoded["input_ids"])
-            model_inputs["labels"].extend(encoded["labels"])
-            model_inputs["attention_masks"].extend(encoded["attention_masks"])
-            model_inputs["pi_target"].extend(examples["_pi_target"][i]["helpfulness"] +
-                                              examples["_pi_target"][i]["honesty"] +
-                                              examples["_pi_target"][i]["instruction_following"] +
-                                              examples["_pi_target"][i]["truthfulness"])
+                encoded = self._encode_listwise_example(
+                    prompt=examples["_prompt"][i],
+                    responses=[{"role": "assistant", "content": r["content"]} for r in responses],
+                    system=examples["_system"][i],
+                    tools=examples["_tools"][i],
+                    images=examples["_images"][i] or [],
+                    videos=examples["_videos"][i] or [],
+                    audios=examples["_audios"][i] or [],
+                )
+
+                model_inputs["input_ids"].extend(encoded["input_ids"])             # +4
+                model_inputs["labels"].extend(encoded["labels"])                   # +4
+                model_inputs["attention_mask"].extend(encoded["attention_masks"])  # +4
+                model_inputs["pi_target"].extend(examples["_pi_target"][i][dimension])  # +4
 
         return model_inputs
