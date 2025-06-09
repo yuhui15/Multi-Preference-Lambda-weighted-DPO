@@ -1,0 +1,137 @@
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:14,956 >> loading file tokenizer.json from cache at /Users/xiyaowang/.cache/huggingface/hub/models--llamafactory--tiny-random-Llama-3/snapshots/bf2a2e3bf199ad2ee96f02a3c00246c608db22a8/tokenizer.json
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:14,956 >> loading file tokenizer.model from cache at None
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:14,956 >> loading file added_tokens.json from cache at None
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:14,956 >> loading file special_tokens_map.json from cache at /Users/xiyaowang/.cache/huggingface/hub/models--llamafactory--tiny-random-Llama-3/snapshots/bf2a2e3bf199ad2ee96f02a3c00246c608db22a8/special_tokens_map.json
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:14,956 >> loading file tokenizer_config.json from cache at /Users/xiyaowang/.cache/huggingface/hub/models--llamafactory--tiny-random-Llama-3/snapshots/bf2a2e3bf199ad2ee96f02a3c00246c608db22a8/tokenizer_config.json
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:14,957 >> loading file chat_template.jinja from cache at None
+[INFO|tokenization_utils_base.py:2299] 2025-06-09 14:13:15,113 >> Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
+[INFO|configuration_utils.py:698] 2025-06-09 14:13:15,891 >> loading configuration file config.json from cache at /Users/xiyaowang/.cache/huggingface/hub/models--llamafactory--tiny-random-Llama-3/snapshots/bf2a2e3bf199ad2ee96f02a3c00246c608db22a8/config.json
+[INFO|configuration_utils.py:770] 2025-06-09 14:13:15,898 >> Model config LlamaConfig {
+  "architectures": [
+    "LlamaForCausalLM"
+  ],
+  "attention_bias": false,
+  "attention_dropout": 0.0,
+  "bos_token_id": 128000,
+  "eos_token_id": [
+    128001,
+    128008,
+    128009
+  ],
+  "head_dim": 4,
+  "hidden_act": "silu",
+  "hidden_size": 16,
+  "initializer_range": 0.02,
+  "intermediate_size": 64,
+  "max_position_embeddings": 131072,
+  "mlp_bias": false,
+  "model_type": "llama",
+  "num_attention_heads": 4,
+  "num_hidden_layers": 2,
+  "num_key_value_heads": 4,
+  "pretraining_tp": 1,
+  "rms_norm_eps": 1e-05,
+  "rope_scaling": {
+    "factor": 8.0,
+    "high_freq_factor": 4.0,
+    "low_freq_factor": 1.0,
+    "original_max_position_embeddings": 8192,
+    "rope_type": "llama3"
+  },
+  "rope_theta": 500000.0,
+  "tie_word_embeddings": false,
+  "torch_dtype": "float16",
+  "transformers_version": "4.52.3",
+  "use_cache": true,
+  "vocab_size": 128256
+}
+
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:16,275 >> loading file tokenizer.json from cache at /Users/xiyaowang/.cache/huggingface/hub/models--llamafactory--tiny-random-Llama-3/snapshots/bf2a2e3bf199ad2ee96f02a3c00246c608db22a8/tokenizer.json
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:16,275 >> loading file tokenizer.model from cache at None
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:16,275 >> loading file added_tokens.json from cache at None
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:16,276 >> loading file special_tokens_map.json from cache at /Users/xiyaowang/.cache/huggingface/hub/models--llamafactory--tiny-random-Llama-3/snapshots/bf2a2e3bf199ad2ee96f02a3c00246c608db22a8/special_tokens_map.json
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:16,276 >> loading file tokenizer_config.json from cache at /Users/xiyaowang/.cache/huggingface/hub/models--llamafactory--tiny-random-Llama-3/snapshots/bf2a2e3bf199ad2ee96f02a3c00246c608db22a8/tokenizer_config.json
+[INFO|tokenization_utils_base.py:2023] 2025-06-09 14:13:16,276 >> loading file chat_template.jinja from cache at None
+[INFO|tokenization_utils_base.py:2299] 2025-06-09 14:13:16,431 >> Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
+[INFO|2025-06-09 14:13:16] llamafactory.data.template:143 >> Add pad token: <|eot_id|>
+[INFO|2025-06-09 14:13:16] llamafactory.data.template:143 >> Add <|eom_id|> to stop words.
+INPUT FEATURES:
+==================================================
+Feature 1:
+  input_ids: [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 60704, 128009]
+  attention_mask: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  labels: [-100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, 60704, 128009]
+  pi_target: 0.6439142598879724
+
+Feature 2:
+  input_ids: [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 95509, 128009]
+  attention_mask: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  labels: [-100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, 95509, 128009]
+  pi_target: 0.032058603280084995
+
+Feature 3:
+  input_ids: [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 40672, 128009]
+  attention_mask: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  labels: [-100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, 40672, 128009]
+  pi_target: 0.08714431874203259
+
+Feature 4:
+  input_ids: [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 38136, 1907, 128009]
+  attention_mask: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  labels: [-100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, 38136, 1907, 128009]
+  pi_target: 0.23688281808991016
+
+COLLATOR OUTPUT:
+==================================================
+Output type: <class 'transformers.tokenization_utils_base.BatchEncoding'>
+Output keys: ['input_ids', 'attention_mask', 'labels', 'pi_target']
+
+input_ids:
+  Type: <class 'torch.Tensor'>
+  Shape: torch.Size([4, 20])
+  Dtype: torch.int64
+  Data: tensor([[128000, 128006,    882, 128007,    271,   3923,    374,    279,   6864,
+            315,   9822,     30, 128009, 128006,  78191, 128007,    271,  60704,
+         128009, 128009],
+        [128000, 128006,    882, 128007,    271,   3923,    374,    279,   6864,
+            315,   9822,     30, 128009, 128006,  78191, 128007,    271,  95509,
+         128009, 128009],
+        [128000, 128006,    882, 128007,    271,   3923,    374,    279,   6864,
+            315,   9822,     30, 128009, 128006,  78191, 128007,    271,  40672,
+         128009, 128009],
+        [128000, 128006,    882, 128007,    271,   3923,    374,    279,   6864,
+            315,   9822,     30, 128009, 128006,  78191, 128007,    271,  38136,
+           1907, 128009]])
+
+attention_mask:
+  Type: <class 'torch.Tensor'>
+  Shape: torch.Size([4, 20])
+  Dtype: torch.int64
+  Data: tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
+
+labels:
+  Type: <class 'torch.Tensor'>
+  Shape: torch.Size([4, 20])
+  Dtype: torch.int64
+  Data: tensor([[  -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+           -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,  60704,
+         128009,   -100],
+        [  -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+           -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,  95509,
+         128009,   -100],
+        [  -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+           -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,  40672,
+         128009,   -100],
+        [  -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+           -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,  38136,
+           1907, 128009]])
+
+pi_target:
+  Type: <class 'torch.Tensor'>
+  Shape: torch.Size([4])
+  Dtype: torch.float32
+  Data: tensor([0.6439, 0.0321, 0.0871, 0.2369])
+
