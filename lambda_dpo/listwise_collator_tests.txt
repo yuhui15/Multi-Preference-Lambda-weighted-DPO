@@ -1,0 +1,14 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.7, pytest-8.4.0, pluggy-1.6.0 -- /opt/anaconda3/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/xiyaowang/Documents/Projects/Research/Multi-Preference-Lambda-weighted-DPO/lambda_dpo
+configfile: pyproject.toml
+plugins: anyio-4.9.0, cov-6.1.1, asyncio-1.0.0
+asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 6 items / 3 deselected / 3 selected
+
+tests/data/test_collator.py::test_listwise_collator_basic PASSED         [ 33%]
+tests/data/test_collator.py::test_listwise_collator_validation PASSED    [ 66%]
+tests/data/test_collator.py::test_listwise_collator_with_real_data PASSED [100%]
+
+======================= 3 passed, 3 deselected in 7.33s ========================
