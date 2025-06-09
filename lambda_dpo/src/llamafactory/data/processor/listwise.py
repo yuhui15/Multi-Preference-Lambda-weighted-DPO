@@ -68,7 +68,6 @@ class ListwiseDatasetProcessor(DatasetProcessor):
             "input_ids": all_input_ids,
             "labels": all_labels,
             "attention_masks": all_attention_masks,
-            "num_responses": len(responses),
         }
 
     def preprocess_dataset(self, examples: dict[str, list[Any]]) -> dict[str, list[Any]]:
@@ -91,13 +90,12 @@ class ListwiseDatasetProcessor(DatasetProcessor):
                 audios=examples["_audios"][i] or [],
             )
 
-            model_inputs["input_ids"].append(encoded["input_ids"])
-            model_inputs["labels"].append(encoded["labels"])
-            model_inputs["attention_masks"].append(encoded["attention_masks"])
-            model_inputs["num_responses"].append(encoded["num_responses"])
-            model_inputs["preference_distributions"].append(examples["_pi_target"][i])
-            model_inputs["images"].append(examples["_images"][i])
-            model_inputs["videos"].append(examples["_videos"][i])
-            model_inputs["audios"].append(examples["_audios"][i])
+            model_inputs["input_ids"].extend(encoded["input_ids"])
+            model_inputs["labels"].extend(encoded["labels"])
+            model_inputs["attention_masks"].extend(encoded["attention_masks"])
+            model_inputs["pi_target"].extend(examples["_pi_target"][i]["helpfulness"] +
+                                              examples["_pi_target"][i]["honesty"] +
+                                              examples["_pi_target"][i]["instruction_following"] +
+                                              examples["_pi_target"][i]["truthfulness"])
 
         return model_inputs
