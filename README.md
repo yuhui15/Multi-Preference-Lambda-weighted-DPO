@@ -22,7 +22,35 @@ Each component loss is defined as:
 
 ```math
 L^{(k)}(θ) = E_{(x, {y_i}) ∼ D} \left[ 
-  - \sum_{i=1}^{N} p_i^{*(k)} \cdot \log \left( 
+  - \sum_{i=1}^{N} p_i^{*(k)} \cdot \log \left(
     \frac{\left( \frac{π_θ(y_i|x)}{π_{ref}(y_i|x)} \right)^β}
          {\sum_{j=1}^{N} \left( \frac{π_θ(y_j|x)}{π_{ref}(y_j|x)} \right)^β}
   \right) \right]
+```
+
+Aggregating all $m$ preferences with a sampled weight vector $\lambda \in \Delta^m$
+gives the final training objective:
+
+```math
+L(θ) = \mathbb{E}_{\boldsymbol{\lambda} \sim P(\lambda)} \left[\sum_{k=1}^m
+\lambda_k \, L^{(k)}(θ)\right]
+```
+
+Here $P(\lambda)$ can be any distribution over the simplex (e.g. Dirichlet),
+allowing the model to learn from diverse preference trade-offs.
+
+In practice the repository computes $L^{(k)}(θ)$ for each preference dimension
+and samples a new $\lambda$ at every training step. The weighted sum directs the
+model to outputs that satisfy different user priorities.
+
+## 🔧 Running Tests
+
+Execute the following commands inside the `lambda_dpo` directory to verify the
+installation:
+
+```bash
+cd lambda_dpo
+make test
+```
+
+For complete usage instructions, please refer to `lambda_dpo/README.md`.
