@@ -284,11 +284,6 @@ def _get_preprocessed_dataset(
 
     # Safely peek at the first example to get column names and for logging
     first_example = _peek_first_example(dataset)
-    if first_example is None:
-        if stage == "pt":
-            raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
-        else:
-            raise RuntimeError("Cannot find valid samples, check `data/README.md` for the data format.")
 
     dataset_processor = _get_dataset_processor(
         data_args, stage, template, tokenizer, processor, 
@@ -314,11 +309,15 @@ def _get_preprocessed_dataset(
         remove_columns=column_names,
         **kwargs,
     )
-
     if training_args.should_log:
-        print("eval example:" if is_eval else "training example:")
-        # Use the peeked example for logging instead of consuming again
-        dataset_processor.print_data_example(first_example)
+        try:
+            print("eval example:" if is_eval else "training example:")
+            dataset_processor.print_data_example(next(iter(dataset)))
+        except StopIteration:
+            if stage == "pt":
+                raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
+            else:
+                raise RuntimeError("Cannot find valid samples, check `data/README.md` for the data format.")
 
     return dataset
 
