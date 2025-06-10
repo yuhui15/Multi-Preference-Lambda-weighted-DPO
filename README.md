@@ -45,7 +45,8 @@ model to outputs that satisfy different user priorities.
 
 ## 🔧 Running Tests
 
-Execute the following commands inside the `lambda_dpo` directory to verify the
+Install the Python dependencies listed in `requirements.txt` and then execute
+the following commands inside the `lambda_dpo` directory to verify the
 installation:
 
 ```bash
