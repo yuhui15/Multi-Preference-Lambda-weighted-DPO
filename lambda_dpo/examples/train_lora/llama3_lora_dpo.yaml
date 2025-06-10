@@ -1,5 +1,5 @@
 ### model
-model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
+model_name_or_path: meta-llama/Llama-3.2-1B-Instruct
 trust_remote_code: true
 
 ### method
@@ -9,16 +9,16 @@ finetuning_type: lora
 lora_rank: 8
 lora_target: all
 pref_beta: 0.1
-pref_loss: sigmoid  # choices: [sigmoid (dpo), orpo, simpo]
+pref_loss: lambda_dpo  # choices: [sigmoid (dpo), orpo, simpo]
 
 ### dataset
-dataset: dpo_en_demo
+dataset: ultrafeedback_listwise
 template: llama3
 cutoff_len: 2048
-max_samples: 1000
+max_samples: 500
 overwrite_cache: true
-preprocessing_num_workers: 16
-dataloader_num_workers: 4
+preprocessing_num_workers: 1
+dataloader_num_workers: 1
 
 ### output
 output_dir: saves/llama3-8b/lora/dpo
