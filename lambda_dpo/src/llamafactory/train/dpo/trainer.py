@@ -34,6 +34,7 @@ from ...extras.constants import IGNORE_INDEX
 from ...extras.packages import is_transformers_version_greater_than
 from ..callbacks import SaveProcessorCallback
 from ..trainer_utils import get_batch_logps, nested_detach
+from ..trainer_utils import create_custom_optimizer, create_custom_scheduler
 
 if TYPE_CHECKING:
     from transformers import PreTrainedModel, ProcessorMixin
@@ -238,5 +239,31 @@ class CustomDPOTrainer(DPOTrainer):
         for key, metric in zip(key_list, metric_list):
             if not key.startswith("dummy_"):
                 logs[key] = metric
+
+        return Trainer.log(self, logs, *args, **kwargs)
+
+    @override
+    def create_optimizer(self) -> "torch.optim.Optimizer":
+        if self.optimizer is None:
+            self.optimizer = create_custom_optimizer(self.model, self.args, self.finetuning_args)
+        return super().create_optimizer()
+
+    @override
+    def create_scheduler(self, num_training_steps: int, optimizer: Optional["torch.optim.Optimizer"] = None) -> "torch.optim.lr_scheduler.LRScheduler":
+        create_custom_scheduler(self.args, num_training_steps, optimizer)
+        return super().create_scheduler(num_training_steps, optimizer)
+
+    @override
+    def _get_train_sampler(self, *args, **kwargs) -> Optional["torch.utils.data.Sampler"]:
+        if self.finetuning_args.disable_shuffling:
+            return torch.utils.data.SequentialSampler(self.train_dataset)
+
+        return super()._get_train_sampler(*args, **kwargs)
+
+    @override
+    def get_batch_samples(self, *args, **kwargs):
+        r"""Replace the method of DPO Trainer with the one of the standard Trainer."""
+        return Trainer.get_batch_samples(self, *args, **kwargs)
+
 
         return Trainer.log(self, logs, *args, **kwargs)
