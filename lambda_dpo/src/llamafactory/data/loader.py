@@ -241,10 +241,10 @@ def _get_dataset_processor(
 
     elif stage == "rm":
         # Check if this is a listwise dataset by examining the first example
-        if "_pi_target" in peeked_example.keys():
-          dataset_processor_class = ListwiseDatasetProcessor
+        if peeked_example is not None and "_pi_target" in peeked_example:
+            dataset_processor_class = ListwiseDatasetProcessor
         else:
-          dataset_processor_class = PairwiseDatasetProcessor
+            dataset_processor_class = PairwiseDatasetProcessor
     elif stage == "kto":
         dataset_processor_class = FeedbackDatasetProcessor
     else:
