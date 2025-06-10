@@ -241,25 +241,10 @@ def _get_dataset_processor(
 
     elif stage == "rm":
         # Check if this is a listwise dataset by examining the first example
-        first_example = peeked_example or _peek_first_example(dataset)
-        if first_example is not None:
-            # If _response has more than 2 items or has _preference_data, it's listwise
-            if "_preference_data" in first_example and first_example.get("_preference_data"):
-                dataset_processor_class = ListwiseDatasetProcessor
-            elif "_response" in first_example:
-                response = first_example["_response"]
-                if isinstance(response, list) and len(response) > 2:
-                    # Validate that responses are dicts as expected
-                    if all(isinstance(r, dict) for r in response):
-                        dataset_processor_class = ListwiseDatasetProcessor
-                    else:
-                        dataset_processor_class = PairwiseDatasetProcessor
-                else:
-                    dataset_processor_class = PairwiseDatasetProcessor
-            else:
-                dataset_processor_class = PairwiseDatasetProcessor
+        if "_pi_target" in peeked_example.keys():
+          dataset_processor_class = ListwiseDatasetProcessor
         else:
-            dataset_processor_class = PairwiseDatasetProcessor
+          dataset_processor_class = PairwiseDatasetProcessor
     elif stage == "kto":
         dataset_processor_class = FeedbackDatasetProcessor
     else:
@@ -358,7 +343,7 @@ def get_dataset(
             stage,
             return_dict=data_args.eval_on_each_dataset,
         )
-
+    
     with training_args.main_process_first(desc="pre-process dataset", local=(not data_args.data_shared_file_system)):
         dataset = _get_preprocessed_dataset(
             dataset, data_args, training_args, stage, template, tokenizer, processor, is_eval=False
