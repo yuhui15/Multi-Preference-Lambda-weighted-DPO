@@ -162,14 +162,20 @@ class UltrafeedbackDatasetConverter(DatasetConverter):
                 annotations = completion.get("annotations", {})
 
                 for dimension in dimensions:
-                    rating = self.default_rating
-                    if dimension in annotations and "Rating" in annotations[dimension]:
+                    # Robustly parse the rating field.
+                    raw = annotations.get(dimension, {}).get("Rating", None)
+                    if raw in (None, "", "N/A"):
+                        # Missing or intentionally left blank → keep default without noise.
+                        rating = self.default_rating
+                    else:
                         try:
-                            rating = float(annotations[dimension]["Rating"])
+                            rating = float(raw)
                         except (ValueError, TypeError):
-                            logger.warning_rank0(
-                                f"Failed to parse {dimension} rating: {annotations[dimension].get('Rating')}, using default."
+                            # Log *once* for all unexpected bad values.
+                            logger.warning_rank0_once(
+                                f"Failed to parse {dimension} rating: {raw!r}, using default."
                             )
+                            rating = self.default_rating
                     
                     output[dimension].append({
                         "model": model,

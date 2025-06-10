@@ -4,3 +4,6 @@
 # Claude
 .claude
 CLAUDE.md
+
+# macOS-specific configurations
+*_macos.yaml
