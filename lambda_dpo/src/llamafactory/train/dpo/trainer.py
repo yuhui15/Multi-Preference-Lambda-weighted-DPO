@@ -288,7 +288,7 @@ class CustomDPOTrainer(DPOTrainer):
         seq_log_probs = (label_log_probs * mask).sum(dim=1) / mask.sum(dim=1)
 
         with torch.no_grad():
-            if self.use_ref_model and self.ref_model is not None:
+            if self.finetuning_args.use_ref_model and self.ref_model is not None:
                 ref_logits = self.ref_model(input_ids=input_ids, attention_mask=attention_mask).logits
                 ref_log_probs = F.log_softmax(ref_logits[:, :-1], dim=-1)
                 ref_label_log_probs = torch.gather(ref_log_probs, dim=2, index=labels_shifted.unsqueeze(-1)).squeeze(-1)
