@@ -282,9 +282,10 @@ class CustomDPOTrainer(DPOTrainer):
 
         logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
         log_probs = F.log_softmax(logits[:, :-1], dim=-1)
-        labels_shifted = labels[:, 1:].contiguous()
+        labels_shifted = labels[:, 1:].clone()
+        mask = labels_shifted != self.label_pad_token_id
+        labels_shifted[labels_shifted == self.label_pad_token_id] = 0  # dummy token for gather
         label_log_probs = torch.gather(log_probs, dim=2, index=labels_shifted.unsqueeze(-1)).squeeze(-1)
-        mask = (labels_shifted != -100).float()
         seq_log_probs = (label_log_probs * mask).sum(dim=1) / mask.sum(dim=1)
 
         with torch.no_grad():
