@@ -43,14 +43,33 @@ In practice the repository computes $L^{(k)}(θ)$ for each preference dimension
 and samples a new $\lambda$ at every training step. The weighted sum directs the
 model to outputs that satisfy different user priorities.
 
-## 🔧 Running Tests
-
-Execute the following commands inside the `lambda_dpo` directory to verify the
-installation:
+## 🚀 Quick Start
 
 ```bash
+git clone https://github.com/yuhui15/Multi-Preference-Lambda-weighted-DPO.git
+cd Multi-Preference-Lambda-weighted-DPO
+
 cd lambda_dpo
-make test
+pip install -r requirements.txt
+pip install --upgrade huggingface_hub
+huggingface-cli login
+
+pip install -e ".[torch,metrics]" --no-build-isolation
+
+llamafactory-cli train examples/train_lora/llama3_lora_dpo.yaml
 ```
 
-For complete usage instructions, please refer to `lambda_dpo/README.md`.
+This repository uses a slightly modified version of **LlamaFactory**:
+
+- **ListwiseDataCollatorWithPadding** – pads batches of four responses while
+  preserving the `pi_target` weight of each response. It returns a
+  `BatchEncoding` with tensors `input_ids`, `attention_mask`, `labels` and
+  `pi_target`.
+- **ListwiseDatasetProcessor** – flattens multi-response examples with
+  preference vectors into tokenized lists. The output is a dictionary containing
+  `input_ids`, `labels`, `attention_mask` and the normalized `pi_target` values
+  for every group of four responses.
+- **UltrafeedbackDatasetConverter** – converts raw UltraFeedback data (an
+  instruction plus several completions with ratings) into the standard format
+  used by the processor. It produces fields such as `_prompt`, the per-dimension
+  response lists and the `_pi_target` preference distribution.
