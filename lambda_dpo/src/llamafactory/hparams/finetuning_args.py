@@ -202,6 +202,10 @@ class RLHFArguments:
         default="lora",
         metadata={"help": "The type of the reward model in PPO training. Lora model only supports lora training."},
     )
+    lambda_dpo_chunk_size: Optional[int] = field(
+        default=None,
+        metadata={"help": "Chunk size for lambda DPO loss computation."},
+    )
 
 
 @dataclass
