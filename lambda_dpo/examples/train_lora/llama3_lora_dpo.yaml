@@ -1,7 +1,6 @@
 ### model
 model_name_or_path: meta-llama/Llama-3.2-1B-Instruct
 trust_remote_code: true
-use_cache: false
 
 ### method
 stage: dpo
@@ -15,8 +14,8 @@ pref_loss: lambda_dpo  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
 ### dataset
 dataset: ultrafeedback_listwise
 template: llama3
-cutoff_len: 1024
-max_samples: 2000
+cutoff_len: 2048
+max_samples: 10000
 overwrite_cache: true
 preprocessing_num_workers: 1
 dataloader_num_workers: 1
@@ -36,10 +35,9 @@ learning_rate: 5.0e-6
 num_train_epochs: 3.0
 lr_scheduler_type: cosine
 warmup_ratio: 0.1
-fp16: true
+bf16: true
 ddp_timeout: 180000000
-resume_from_checkpoint: false
-gradient_checkpointing: true
+resume_from_checkpoint: true
 
 ### eval
 # eval_dataset: dpo_en_demo
