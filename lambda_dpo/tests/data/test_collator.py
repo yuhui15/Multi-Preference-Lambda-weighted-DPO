@@ -268,7 +268,7 @@ def test_listwise_collator_validation():
         data_collator(features)
         assert False, "Should have raised ValueError for non-multiple of 4"
     except ValueError as e:
-        assert "groups of 4 responses" in str(e)
+        assert "multiples of 4 responses" in str(e)
 
 
 def test_listwise_collator_with_real_data():

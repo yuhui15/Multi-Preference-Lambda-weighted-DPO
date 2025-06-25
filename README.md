@@ -61,14 +61,14 @@ llamafactory-cli train examples/train_lora/llama3_lora_dpo.yaml
 
 This repository uses a slightly modified version of **LlamaFactory**:
 
-- **ListwiseDataCollatorWithPadding** – pads batches of four responses while
-  preserving the `pi_target` weight of each response. It returns a
-  `BatchEncoding` with tensors `input_ids`, `attention_mask`, `labels` and
-  `pi_target`.
+- **ListwiseDataCollatorWithPadding** – pads batches composed of one or more
+  4-response groups while preserving the `pi_target` weight of each response. It
+  returns a `BatchEncoding` with tensors `input_ids`, `attention_mask`, `labels`
+  and `pi_target`.
 - **ListwiseDatasetProcessor** – flattens multi-response examples with
   preference vectors into tokenized lists. The output is a dictionary containing
   `input_ids`, `labels`, `attention_mask` and the normalized `pi_target` values
-  for every group of four responses.
+  for each group of four responses.
 - **UltrafeedbackDatasetConverter** – converts raw UltraFeedback data (an
   instruction plus several completions with ratings) into the standard format
   used by the processor. It produces fields such as `_prompt`, the per-dimension

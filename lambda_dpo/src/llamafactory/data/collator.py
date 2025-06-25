@@ -311,13 +311,14 @@ class KTODataCollatorWithPadding(MultiModalDataCollatorForSeq2Seq):
 @dataclass
 class ListwiseDataCollatorWithPadding(MultiModalDataCollatorForSeq2Seq):
     r"""Data collator for listwise data.
-    
-    Handles groups of 4 responses per prompt with pi_target weights for lambda-weighted DPO.
-    Maintains the grouping structure during batching to ensure proper training dynamics.
+
+    Each feature can include one or more groups of four responses. The collator
+    flattens these groups while keeping the ``pi_target`` weights aligned so that
+    lambda-weighted DPO training preserves the listwise structure.
     """
 
     def __call__(self, features: list[dict[str, Any]]) -> dict[str, "torch.Tensor"]:
-        r"""Pad listwise data while preserving 4-response groups."""
+        r"""Pad listwise data while preserving groups of four responses."""
 
         expanded_features = []
         pi_targets = []
@@ -326,7 +327,7 @@ class ListwiseDataCollatorWithPadding(MultiModalDataCollatorForSeq2Seq):
             group_len = len(feature["input_ids"])
             if group_len % 4 != 0:
                 raise ValueError(
-                    f"Listwise feature must contain groups of 4 responses, got {group_len}"
+                    f"Listwise feature must contain multiples of 4 responses, got {group_len}"
                 )
 
             for idx in range(group_len):
