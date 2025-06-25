@@ -629,6 +629,8 @@ llamafactory-cli chat examples/inference/llama3_lora_sft.yaml
 llamafactory-cli export examples/merge_lora/llama3_lora_sft.yaml
 ```
 
+使用 `--shuffle_block_size 16` 可在保持组内顺序的同时以 16 条数据为一组随机打乱训练集。
+
 高级用法请参考 [examples/README_zh.md](examples/README_zh.md)（包括多 GPU 微调）。
 
 > [!TIP]

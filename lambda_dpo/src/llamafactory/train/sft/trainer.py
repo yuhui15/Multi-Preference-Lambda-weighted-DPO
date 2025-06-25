@@ -95,6 +95,14 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
     def _get_train_sampler(self, *args, **kwargs) -> Optional["torch.utils.data.Sampler"]:
         if self.finetuning_args.disable_shuffling:
             return torch.utils.data.SequentialSampler(self.train_dataset)
+        if self.finetuning_args.shuffle_block_size:
+            from llamafactory.data import BlockShuffleSampler
+
+            return BlockShuffleSampler(
+                self.train_dataset,
+                self.finetuning_args.shuffle_block_size,
+                seed=int(self.args.seed),
+            )
 
         return super()._get_train_sampler(*args, **kwargs)
 

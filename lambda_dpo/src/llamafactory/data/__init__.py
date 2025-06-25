@@ -19,6 +19,7 @@ from .collator import (
     PairwiseDataCollatorWithPadding,
     SFTDataCollatorWith4DAttentionMask,
 )
+from .block_sampler import BlockShuffleSampler
 from .data_utils import Role, split_dataset
 from .loader import get_dataset
 from .template import TEMPLATES, Template, get_template_and_fix_tokenizer
@@ -36,4 +37,5 @@ __all__ = [
     "get_dataset",
     "get_template_and_fix_tokenizer",
     "split_dataset",
+    "BlockShuffleSampler",
 ]
