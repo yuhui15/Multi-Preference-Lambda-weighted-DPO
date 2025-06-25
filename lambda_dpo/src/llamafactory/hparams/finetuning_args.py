@@ -435,6 +435,10 @@ class FinetuningArguments(
         default=False,
         metadata={"help": "Whether or not to disable the shuffling of the training set."},
     )
+    shuffle_block_size: Optional[int] = field(
+        default=None,
+        metadata={"help": "Shuffle training data by blocks of this size. Effective only if shuffling is enabled."},
+    )
     early_stopping_steps: Optional[int] = field(
         default=None,
         metadata={"help": "Number of steps to stop training if the `metric_for_best_model` does not improve."},

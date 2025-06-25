@@ -59,6 +59,9 @@ pip install -e ".[torch,metrics]" --no-build-isolation
 llamafactory-cli train examples/train_lora/llama3_lora_dpo.yaml
 ```
 
+Use `--shuffle_block_size 16` to randomly shuffle training data in 16-example
+blocks while preserving listwise groups.
+
 This repository uses a slightly modified version of **LlamaFactory**:
 
 - **ListwiseDataCollatorWithPadding** – pads batches of four responses while
@@ -73,3 +76,6 @@ This repository uses a slightly modified version of **LlamaFactory**:
   instruction plus several completions with ratings) into the standard format
   used by the processor. It produces fields such as `_prompt`, the per-dimension
   response lists and the `_pi_target` preference distribution.
+- **BlockShuffleSampler** – when training with `shuffle_block_size`, this sampler
+  shuffles data in fixed-size blocks instead of individual examples so grouped
+  listwise data remains intact.

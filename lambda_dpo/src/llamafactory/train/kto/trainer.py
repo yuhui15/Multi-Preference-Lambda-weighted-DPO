@@ -122,6 +122,14 @@ class CustomKTOTrainer(KTOTrainer):
         r"""Replace the sequential sampler of KTO Trainer created by trl with the random sampler."""
         if self.finetuning_args.disable_shuffling:
             return torch.utils.data.SequentialSampler(self.train_dataset)
+        if self.finetuning_args.shuffle_block_size:
+            from llamafactory.data import BlockShuffleSampler
+
+            return BlockShuffleSampler(
+                self.train_dataset,
+                self.finetuning_args.shuffle_block_size,
+                seed=int(self.args.seed),
+            )
 
         return Trainer._get_train_sampler(self, *args, **kwargs)
 
