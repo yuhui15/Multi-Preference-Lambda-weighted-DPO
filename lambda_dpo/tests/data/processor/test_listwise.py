@@ -95,16 +95,20 @@ def test_ultrafeedback_listwise_flattened_structure():
     assert "attention_mask" in model_inputs
     assert "pi_target" in model_inputs
 
-    assert len(model_inputs["input_ids"]) == 16
-    assert len(model_inputs["labels"]) == 16
-    assert len(model_inputs["attention_mask"]) == 16
-    assert len(model_inputs["pi_target"]) == 16
+    assert len(model_inputs["input_ids"]) == 1
+    assert len(model_inputs["labels"]) == 1
+    assert len(model_inputs["attention_mask"]) == 1
+    assert len(model_inputs["pi_target"]) == 1
+    assert len(model_inputs["input_ids"][0]) == 16
+    assert len(model_inputs["labels"][0]) == 16
+    assert len(model_inputs["attention_mask"][0]) == 16
+    assert len(model_inputs["pi_target"][0]) == 16
 
     # 🔍 Check token alignment and masks
     for i in range(16):
-        ids = model_inputs["input_ids"][i]
-        labels = model_inputs["labels"][i]
-        attention = model_inputs["attention_mask"][i]
+        ids = model_inputs["input_ids"][0][i]
+        labels = model_inputs["labels"][0][i]
+        attention = model_inputs["attention_mask"][0][i]
 
         assert isinstance(ids, list) and isinstance(labels, list)
         assert len(ids) == len(labels) == len(attention)
@@ -113,5 +117,5 @@ def test_ultrafeedback_listwise_flattened_structure():
 
     # 🔍 Check normalized pi_target for each group of 4
     for start in range(0, 16, 4):
-        pi_slice = model_inputs["pi_target"][start:start + 4]
+        pi_slice = model_inputs["pi_target"][0][start:start + 4]
         assert abs(sum(pi_slice) - 1.0) < 1e-5

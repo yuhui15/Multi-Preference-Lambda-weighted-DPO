@@ -317,33 +317,31 @@ class ListwiseDataCollatorWithPadding(MultiModalDataCollatorForSeq2Seq):
     """
 
     def __call__(self, features: list[dict[str, Any]]) -> dict[str, "torch.Tensor"]:
-        r"""Pad batched listwise data to the longest sequence in the batch.
-        
-        Expects features to contain groups of 4 consecutive examples representing
-        different responses to the same prompt, each with a pi_target weight.
-        """
-        if len(features) % 4 != 0:
-            raise ValueError(f"Listwise data must contain groups of 4 examples, got {len(features)} examples")
-        
-        # Extract pi_target values before processing
-        pi_targets = [feature.pop("pi_target") for feature in features]
-        
-        # Process all features through the base collator
-        target_features = []
+        r"""Pad listwise data while preserving 4-response groups."""
+
+        expanded_features = []
+        pi_targets = []
+
         for feature in features:
-            target_feature = {
-                "input_ids": feature["input_ids"],
-                "attention_mask": feature["attention_mask"],
-                "labels": feature["labels"],
-                "images": feature.get("images", []),
-                "videos": feature.get("videos", []),
-                "audios": feature.get("audios", []),
-            }
-            target_features.append(target_feature)
-        
-        batch = super().__call__(target_features)
-        
-        # Add pi_target back to the batch
+            group_len = len(feature["input_ids"])
+            if group_len % 4 != 0:
+                raise ValueError(
+                    f"Listwise feature must contain groups of 4 responses, got {group_len}"
+                )
+
+            for idx in range(group_len):
+                expanded_features.append(
+                    {
+                        "input_ids": feature["input_ids"][idx],
+                        "attention_mask": feature["attention_mask"][idx],
+                        "labels": feature["labels"][idx],
+                        "images": feature.get("images", []),
+                        "videos": feature.get("videos", []),
+                        "audios": feature.get("audios", []),
+                    }
+                )
+                pi_targets.append(feature["pi_target"][idx])
+
+        batch = super().__call__(expanded_features)
         batch["pi_target"] = torch.tensor(pi_targets, dtype=torch.float32)
-        
         return batch
