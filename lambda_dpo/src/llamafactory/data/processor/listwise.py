@@ -115,10 +115,21 @@ class ListwiseDatasetProcessor(DatasetProcessor):
 
     def print_data_example(self, example: dict[str, list[int]]) -> None:
         """Print a listwise data example to stdout."""
-        valid_labels = list(filter(lambda x: x != IGNORE_INDEX, example["labels"]))
-        print("input_ids:\n{}".format(example["input_ids"]))
-        print("inputs:\n{}".format(self.tokenizer.decode(example["input_ids"], skip_special_tokens=False)))
-        print("label_ids:\n{}".format(example["labels"]))
-        print(f"labels:\n{self.tokenizer.decode(valid_labels, skip_special_tokens=False)}")
-        if "pi_target" in example:
-            print("pi_target:\n{}".format(example["pi_target"]))
+        pi_targets = example.get("pi_target")
+
+        for i, (input_ids, labels) in enumerate(zip(example["input_ids"], example["labels"])):
+            valid_labels = list(filter(lambda x: x != IGNORE_INDEX, labels))
+            print(f"response {i} input_ids:\n{input_ids}")
+            print(
+                "response {} inputs:\n{}".format(
+                    i, self.tokenizer.decode(input_ids, skip_special_tokens=False)
+                )
+            )
+            print("response {} label_ids:\n{}".format(i, labels))
+            print(
+                "response {} labels:\n{}".format(
+                    i, self.tokenizer.decode(valid_labels, skip_special_tokens=False)
+                )
+            )
+            if pi_targets is not None and i < len(pi_targets):
+                print("response {} pi_target:\n{}".format(i, pi_targets[i]))
