@@ -80,6 +80,11 @@ class ListwiseDatasetProcessor(DatasetProcessor):
             if len(examples["_prompt"][i]) % 2 != 1:
                 continue
 
+            example_input_ids = []
+            example_labels = []
+            example_attention_masks = []
+            example_pi_targets = []
+
             for dimension in ["helpfulness", "honesty", "instruction_following", "truthfulness"]:
                 responses = examples[dimension][i]
                 if not isinstance(responses, list) or len(responses) != 4:
@@ -95,10 +100,16 @@ class ListwiseDatasetProcessor(DatasetProcessor):
                     audios=examples["_audios"][i] or [],
                 )
 
-                model_inputs["input_ids"].extend(encoded["input_ids"])             # +4
-                model_inputs["labels"].extend(encoded["labels"])                   # +4
-                model_inputs["attention_mask"].extend(encoded["attention_masks"])  # +4
-                model_inputs["pi_target"].extend(examples["_pi_target"][i][dimension])  # +4
+                example_input_ids.extend(encoded["input_ids"])
+                example_labels.extend(encoded["labels"])
+                example_attention_masks.extend(encoded["attention_masks"])
+                example_pi_targets.extend(examples["_pi_target"][i][dimension])
+
+            if len(example_input_ids) != 0:
+                model_inputs["input_ids"].append(example_input_ids)
+                model_inputs["labels"].append(example_labels)
+                model_inputs["attention_mask"].append(example_attention_masks)
+                model_inputs["pi_target"].append(example_pi_targets)
 
         return model_inputs
 

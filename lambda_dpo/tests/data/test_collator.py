@@ -167,44 +167,32 @@ def test_listwise_collator_basic():
     p = tokenizer_module["tokenizer"].pad_token_id
     q = IGNORE_INDEX
     
-    # Create 4 examples representing responses to the same prompt (like the restructured dataset)
+    # Create 4 responses grouped in a single feature
     features = [
         {
-            "input_ids": [0, 1, 2, 3, 4, 5],
-            "attention_mask": [1, 1, 1, 1, 1, 1],
-            "labels": [q, q, q, q, 4, 5],
-            "pi_target": 0.6,
+            "input_ids": [
+                [0, 1, 2, 3, 4, 5],
+                [0, 1, 2, 3, 6],
+                [0, 1, 2, 3, 7],
+                [0, 1, 2, 3, 8, 9],
+            ],
+            "attention_mask": [
+                [1, 1, 1, 1, 1, 1],
+                [1, 1, 1, 1, 1],
+                [1, 1, 1, 1, 1],
+                [1, 1, 1, 1, 1, 1],
+            ],
+            "labels": [
+                [q, q, q, q, 4, 5],
+                [q, q, q, q, 6],
+                [q, q, q, q, 7],
+                [q, q, q, q, 8, 9],
+            ],
+            "pi_target": [0.6, 0.1, 0.2, 0.1],
             "images": [],
             "videos": [],
             "audios": [],
-        },
-        {
-            "input_ids": [0, 1, 2, 3, 6],
-            "attention_mask": [1, 1, 1, 1, 1],
-            "labels": [q, q, q, q, 6],
-            "pi_target": 0.1,
-            "images": [],
-            "videos": [],
-            "audios": [],
-        },
-        {
-            "input_ids": [0, 1, 2, 3, 7],
-            "attention_mask": [1, 1, 1, 1, 1],
-            "labels": [q, q, q, q, 7],
-            "pi_target": 0.2,
-            "images": [],
-            "videos": [],
-            "audios": [],
-        },
-        {
-            "input_ids": [0, 1, 2, 3, 8, 9],
-            "attention_mask": [1, 1, 1, 1, 1, 1],
-            "labels": [q, q, q, q, 8, 9],
-            "pi_target": 0.1,
-            "images": [],
-            "videos": [],
-            "audios": [],
-        },
+        }
     ]
     
     batch_input = data_collator(features)
@@ -266,28 +254,21 @@ def test_listwise_collator_validation():
         **tokenizer_module,
     )
     
-    # Test with invalid number of examples (not multiple of 4)
+    # Test with invalid number of responses (not multiple of 4)
     features = [
         {
-            "input_ids": [0, 1, 2],
-            "attention_mask": [1, 1, 1],
-            "labels": [-100, -100, 2],
-            "pi_target": 0.5,
-        },
-        {
-            "input_ids": [0, 1, 3],
-            "attention_mask": [1, 1, 1],
-            "labels": [-100, -100, 3],
-            "pi_target": 0.5,
-        },
-        # Only 2 examples instead of 4
+            "input_ids": [[0, 1, 2], [0, 1, 3], [0, 1, 4]],
+            "attention_mask": [[1, 1, 1]] * 3,
+            "labels": [[-100, -100, 2], [-100, -100, 3], [-100, -100, 4]],
+            "pi_target": [0.5, 0.3, 0.2],
+        }
     ]
     
     try:
         data_collator(features)
         assert False, "Should have raised ValueError for non-multiple of 4"
     except ValueError as e:
-        assert "groups of 4 examples" in str(e)
+        assert "groups of 4 responses" in str(e)
 
 
 def test_listwise_collator_with_real_data():
@@ -305,29 +286,26 @@ def test_listwise_collator_with_real_data():
     # Simulated data similar to the restructured dataset file
     features = [
         {
-            "input_ids": [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 60704, 128009],
-            "attention_mask": [1] * 19,
-            "labels": [-100] * 17 + [60704, 128009],
-            "pi_target": 0.6439142598879724,
-        },
-        {
-            "input_ids": [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 95509, 128009],
-            "attention_mask": [1] * 19,
-            "labels": [-100] * 17 + [95509, 128009],
-            "pi_target": 0.032058603280084995,
-        },
-        {
-            "input_ids": [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 40672, 128009],
-            "attention_mask": [1] * 19,
-            "labels": [-100] * 17 + [40672, 128009],
-            "pi_target": 0.08714431874203259,
-        },
-        {
-            "input_ids": [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 38136, 1907, 128009],
-            "attention_mask": [1] * 20,  # Madrid has 2 tokens so 1 extra
-            "labels": [-100] * 17 + [38136, 1907, 128009],
-            "pi_target": 0.23688281808991016,
-        },
+            "input_ids": [
+                [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 60704, 128009],
+                [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 95509, 128009],
+                [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 40672, 128009],
+                [128000, 128006, 882, 128007, 271, 3923, 374, 279, 6864, 315, 9822, 30, 128009, 128006, 78191, 128007, 271, 38136, 1907, 128009],
+            ],
+            "attention_mask": [
+                [1] * 19,
+                [1] * 19,
+                [1] * 19,
+                [1] * 20,
+            ],
+            "labels": [
+                [-100] * 17 + [60704, 128009],
+                [-100] * 17 + [95509, 128009],
+                [-100] * 17 + [40672, 128009],
+                [-100] * 17 + [38136, 1907, 128009],
+            ],
+            "pi_target": [0.6439142598879724, 0.032058603280084995, 0.08714431874203259, 0.23688281808991016],
+        }
     ]
     
     batch_input = data_collator(features)
