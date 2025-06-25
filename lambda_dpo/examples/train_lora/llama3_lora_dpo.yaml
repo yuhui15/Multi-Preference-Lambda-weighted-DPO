@@ -38,7 +38,7 @@ lr_scheduler_type: cosine
 warmup_ratio: 0.1
 fp16: true
 ddp_timeout: 180000000
-resume_from_checkpoint: true
+resume_from_checkpoint: false
 gradient_checkpointing: true
 
 ### eval
