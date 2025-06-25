@@ -80,6 +80,7 @@ class CustomDPOTrainer(DPOTrainer):
         self.ftx_gamma = finetuning_args.pref_ftx
         self.label_smoothing = finetuning_args.dpo_label_smoothing
         self.simpo_gamma = finetuning_args.simpo_gamma
+        self.lambda_dpo_chunk_size = finetuning_args.lambda_dpo_chunk_size
 
         Trainer.__init__(self, model=model, **kwargs)
         self.model_accepts_loss_kwargs = False  # overwrite trainer's default behavior
@@ -280,30 +281,45 @@ class CustomDPOTrainer(DPOTrainer):
         if self.loss_type == "lambda_dpo":
             return self._compute_lambda_dpo_loss(model, inputs, return_outputs)
         else:
-            return super().compute_loss(model, inputs, return_outputs)    
-    
+            return super().compute_loss(model, inputs, return_outputs)
+
     def _compute_lambda_dpo_loss(self, model, inputs, return_outputs):
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
         pi_target = inputs["pi_target"]
 
-        logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
-        log_probs = F.log_softmax(logits[:, :-1], dim=-1)
-        labels_shifted = labels[:, 1:].clone()
-        mask = labels_shifted != self.label_pad_token_id
-        labels_shifted[labels_shifted == self.label_pad_token_id] = 0  # dummy token for gather
-        label_log_probs = torch.gather(log_probs, dim=2, index=labels_shifted.unsqueeze(-1)).squeeze(-1)
-        seq_log_probs = (label_log_probs * mask).sum(dim=1) / mask.sum(dim=1)
+        chunk_size = self.lambda_dpo_chunk_size or input_ids.size(0)
 
-        with torch.no_grad():
-            if self.finetuning_args.use_ref_model and self.ref_model is not None:
-                ref_logits = self.ref_model(input_ids=input_ids, attention_mask=attention_mask).logits
-                ref_log_probs = F.log_softmax(ref_logits[:, :-1], dim=-1)
-                ref_label_log_probs = torch.gather(ref_log_probs, dim=2, index=labels_shifted.unsqueeze(-1)).squeeze(-1)
-                ref_seq_log_probs = (ref_label_log_probs * mask).sum(dim=1) / mask.sum(dim=1)
-            else:
-                ref_seq_log_probs = torch.zeros_like(seq_log_probs)
+        seq_log_probs_list = []
+        ref_seq_log_probs_list = []
+        for start in range(0, input_ids.size(0), chunk_size):
+            end = start + chunk_size
+            chunk_ids = input_ids[start:end]
+            chunk_mask = attention_mask[start:end]
+            chunk_labels = labels[start:end]
+
+            logits = model(input_ids=chunk_ids, attention_mask=chunk_mask).logits
+            log_probs = F.log_softmax(logits[:, :-1], dim=-1)
+            labels_shifted = chunk_labels[:, 1:].clone()
+            mask = labels_shifted != self.label_pad_token_id
+            labels_shifted[labels_shifted == self.label_pad_token_id] = 0
+            label_log_probs = torch.gather(log_probs, dim=2, index=labels_shifted.unsqueeze(-1)).squeeze(-1)
+            seq_lp = (label_log_probs * mask).sum(dim=1) / mask.sum(dim=1)
+            seq_log_probs_list.append(seq_lp)
+
+            with torch.no_grad():
+                if self.finetuning_args.use_ref_model and self.ref_model is not None:
+                    ref_logits = self.ref_model(input_ids=chunk_ids, attention_mask=chunk_mask).logits
+                    ref_log_probs = F.log_softmax(ref_logits[:, :-1], dim=-1)
+                    ref_label_log_probs = torch.gather(ref_log_probs, dim=2, index=labels_shifted.unsqueeze(-1)).squeeze(-1)
+                    ref_lp = (ref_label_log_probs * mask).sum(dim=1) / mask.sum(dim=1)
+                else:
+                    ref_lp = torch.zeros_like(seq_lp)
+            ref_seq_log_probs_list.append(ref_lp)
+
+        seq_log_probs = torch.cat(seq_log_probs_list, dim=0)
+        ref_seq_log_probs = torch.cat(ref_seq_log_probs_list, dim=0)
 
         r_theta = self.beta * (seq_log_probs - ref_seq_log_probs)
         B = input_ids.size(0) // 16
