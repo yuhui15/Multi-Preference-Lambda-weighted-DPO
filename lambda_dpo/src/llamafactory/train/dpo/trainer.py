@@ -334,7 +334,8 @@ class CustomDPOTrainer(DPOTrainer):
             loss = -(p * log_softmaxed).sum(dim=1).mean()
             listwise_losses.append(loss)
 
-        weights = torch.rand(4, device=input_ids.device)
+        num_pref = len(listwise_losses)
+        weights = torch.ones(num_pref, device=input_ids.device)
         weights /= weights.sum()
         final_loss = sum(w * l for w, l in zip(weights, listwise_losses))
 
