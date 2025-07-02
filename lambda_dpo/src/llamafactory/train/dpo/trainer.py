@@ -344,6 +344,57 @@ class CustomDPOTrainer(DPOTrainer):
             return final_loss, {"loss_components": listwise_losses}
         return final_loss
 
+    def _compute_ultra_dpo_loss(self, model, inputs, return_outputs):
+        """Compute DPO loss for the UltraFeedback listwise dataset."""
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
+        labels = inputs["labels"]
+        pi_target = inputs["pi_target"]
+
+        B = input_ids.size(0) // 16
+        pi_target = pi_target.view(B, 4, 4)
+
+        # Uniform preference weights across dimensions
+        pref_weights = torch.ones(4, device=pi_target.device) / 4
+        aggregated = (pi_target * pref_weights.view(1, -1, 1)).sum(dim=1)
+
+        best_resp = aggregated.argmax(dim=1)
+        worst_resp = aggregated.argmin(dim=1)
+
+        batch_offset = torch.arange(B, device=input_ids.device) * 16
+        best_indices = batch_offset + best_resp
+        worst_indices = batch_offset + worst_resp
+
+        gather_idx = torch.cat([best_indices, worst_indices], dim=0)
+        selected_ids = input_ids[gather_idx]
+        selected_mask = attention_mask[gather_idx]
+        selected_labels = labels[gather_idx]
+
+        logits = model(input_ids=selected_ids, attention_mask=selected_mask).logits
+        log_probs = F.log_softmax(logits[:, :-1], dim=-1)
+        labels_shifted = selected_labels[:, 1:].clone()
+        mask = labels_shifted != self.label_pad_token_id
+        labels_shifted[labels_shifted == self.label_pad_token_id] = 0
+        label_log_probs = torch.gather(log_probs, dim=2, index=labels_shifted.unsqueeze(-1)).squeeze(-1)
+        seq_log_probs = (label_log_probs * mask).sum(dim=1) / mask.sum(dim=1)
+
+        with torch.no_grad():
+            if self.finetuning_args.use_ref_model and self.ref_model is not None:
+                ref_logits = self.ref_model(input_ids=selected_ids, attention_mask=selected_mask).logits
+                ref_log_probs = F.log_softmax(ref_logits[:, :-1], dim=-1)
+                ref_label_log_probs = torch.gather(ref_log_probs, dim=2, index=labels_shifted.unsqueeze(-1)).squeeze(-1)
+                ref_seq_log_probs = (ref_label_log_probs * mask).sum(dim=1) / mask.sum(dim=1)
+            else:
+                ref_seq_log_probs = torch.zeros_like(seq_log_probs)
+
+        policy_best, policy_worst = seq_log_probs[:B], seq_log_probs[B:]
+        ref_best, ref_worst = ref_seq_log_probs[:B], ref_seq_log_probs[B:]
+
+        losses, *_ = self.compute_preference_loss(policy_best, policy_worst, ref_best, ref_worst)
+        final_loss = losses.mean()
+        if return_outputs:
+            return final_loss, [losses]
+        return final_loss
 
     @override
     def log(self, logs: dict[str, float], *args, **kwargs) -> None:
