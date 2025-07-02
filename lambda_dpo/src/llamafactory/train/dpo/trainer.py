@@ -290,15 +290,29 @@ class CustomDPOTrainer(DPOTrainer):
         labels = inputs["labels"]
         pi_target = inputs["pi_target"]
 
-        chunk_size = self.lambda_dpo_chunk_size or input_ids.size(0)
+        # Each example contains four preference dimensions with the same four
+        # candidate responses.  Instead of evaluating the model on all 16
+        # sequences, compute the logits once for the unique response set and
+        # reuse them across dimensions.
+        num_pref_dims = 4  # number of preference dimensions
+        group_size = 4  # number of responses per dimension
+
+        B = input_ids.size(0) // (num_pref_dims * group_size)
+        seq_len = input_ids.size(1)
+
+        ids_view = input_ids.view(B, num_pref_dims * group_size, seq_len)[:, :group_size, :].reshape(B * group_size, seq_len)
+        mask_view = attention_mask.view(B, num_pref_dims * group_size, seq_len)[:, :group_size, :].reshape(B * group_size, seq_len)
+        labels_view = labels.view(B, num_pref_dims * group_size, seq_len)[:, :group_size, :].reshape(B * group_size, seq_len)
+
+        chunk_size = self.lambda_dpo_chunk_size or ids_view.size(0)
 
         seq_log_probs_list = []
         ref_seq_log_probs_list = []
-        for start in range(0, input_ids.size(0), chunk_size):
+        for start in range(0, ids_view.size(0), chunk_size):
             end = start + chunk_size
-            chunk_ids = input_ids[start:end]
-            chunk_mask = attention_mask[start:end]
-            chunk_labels = labels[start:end]
+            chunk_ids = ids_view[start:end]
+            chunk_mask = mask_view[start:end]
+            chunk_labels = labels_view[start:end]
 
             logits = model(input_ids=chunk_ids, attention_mask=chunk_mask).logits
             log_probs = F.log_softmax(logits[:, :-1], dim=-1)
@@ -322,21 +336,23 @@ class CustomDPOTrainer(DPOTrainer):
         seq_log_probs = torch.cat(seq_log_probs_list, dim=0)
         ref_seq_log_probs = torch.cat(ref_seq_log_probs_list, dim=0)
 
+        seq_log_probs = seq_log_probs.view(B, group_size).unsqueeze(1).expand(B, num_pref_dims, group_size).reshape(-1)
+        ref_seq_log_probs = ref_seq_log_probs.view(B, group_size).unsqueeze(1).expand(B, num_pref_dims, group_size).reshape(-1)
+
         r_theta = self.beta * (seq_log_probs - ref_seq_log_probs)
-        B = input_ids.size(0) // 16
-        r_theta = r_theta.view(B, 4, 4)
-        pi_target = pi_target.view(B, 4, 4)
+        r_theta = r_theta.view(B, num_pref_dims, group_size)
+        pi_target = pi_target.view(B, num_pref_dims, group_size)
 
         listwise_losses = []
-        for i in range(4):
+        for i in range(num_pref_dims):
             r = r_theta[:, i, :]
             p = pi_target[:, i, :] + 1e-10
             log_softmaxed = r - torch.logsumexp(r, dim=1, keepdim=True)
             loss = -(p * log_softmaxed).sum(dim=1).mean()
             listwise_losses.append(loss)
 
-        num_pref = len(listwise_losses)
-        weights = torch.ones(num_pref, device=input_ids.device)
+        num_losses = len(listwise_losses)
+        weights = torch.ones(num_losses, device=input_ids.device)
         weights /= weights.sum()
         final_loss = sum(w * l for w, l in zip(weights, listwise_losses))
 
