@@ -15,7 +15,7 @@ pref_loss: lambda_dpo  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
 dataset: ultrafeedback_listwise
 template: llama3
 cutoff_len: 2048
-max_samples: 20000
+max_samples: 2000
 overwrite_cache: true
 preprocessing_num_workers: 1
 dataloader_num_workers: 1
@@ -33,7 +33,7 @@ lambda_dpo_chunk_size: 1
 per_device_train_batch_size: 1
 gradient_accumulation_steps: 8
 learning_rate: 5.0e-6
-num_train_epochs: 1.0
+num_train_epochs: 5.0
 lr_scheduler_type: cosine
 warmup_ratio: 0.1
 bf16: true
