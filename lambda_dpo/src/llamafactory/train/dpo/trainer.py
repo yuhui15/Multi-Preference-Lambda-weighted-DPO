@@ -351,15 +351,44 @@ class CustomDPOTrainer(DPOTrainer):
         labels = inputs["labels"]
         pi_target = inputs["pi_target"]
 
-        chunk_size = self.lambda_dpo_chunk_size or input_ids.size(0)
+        B = input_ids.size(0) // 16
+        pi_target = pi_target.view(B, 4, 4)
+
+        best_idx_rel = pi_target.argmax(dim=2)
+        worst_idx_rel = pi_target.argmin(dim=2)
+        batch_offset = torch.arange(B, device=input_ids.device).view(B, 1) * 16
+        dim_offset = torch.arange(4, device=input_ids.device).view(1, 4) * 4
+        best_idx = batch_offset + dim_offset + best_idx_rel
+        worst_idx = batch_offset + dim_offset + worst_idx_rel
+
+        ordered = torch.stack(
+            [
+                best_idx[:, 0],
+                worst_idx[:, 0],
+                best_idx[:, 1],
+                worst_idx[:, 1],
+                best_idx[:, 2],
+                worst_idx[:, 2],
+                best_idx[:, 3],
+                worst_idx[:, 3],
+            ],
+            dim=1,
+        )
+        flat_indices = ordered.view(-1)
+
+        selected_ids = input_ids[flat_indices]
+        selected_mask = attention_mask[flat_indices]
+        selected_labels = labels[flat_indices]
+
+        chunk_size = self.lambda_dpo_chunk_size or selected_ids.size(0)
 
         seq_log_probs_list = []
         ref_seq_log_probs_list = []
-        for start in range(0, input_ids.size(0), chunk_size):
+        for start in range(0, selected_ids.size(0), chunk_size):
             end = start + chunk_size
-            chunk_ids = input_ids[start:end]
-            chunk_mask = attention_mask[start:end]
-            chunk_labels = labels[start:end]
+            chunk_ids = selected_ids[start:end]
+            chunk_mask = selected_mask[start:end]
+            chunk_labels = selected_labels[start:end]
 
             logits = model(input_ids=chunk_ids, attention_mask=chunk_mask).logits
             log_probs = F.log_softmax(logits[:, :-1], dim=-1)
@@ -380,34 +409,16 @@ class CustomDPOTrainer(DPOTrainer):
                     ref_lp = torch.zeros_like(seq_lp)
             ref_seq_log_probs_list.append(ref_lp)
 
-        seq_log_probs = torch.cat(seq_log_probs_list, dim=0)
-        ref_seq_log_probs = torch.cat(ref_seq_log_probs_list, dim=0)
+        seq_log_probs = torch.cat(seq_log_probs_list, dim=0).view(B, 8)
+        ref_seq_log_probs = torch.cat(ref_seq_log_probs_list, dim=0).view(B, 8)
 
-        B = input_ids.size(0) // 16
-        seq_log_probs = seq_log_probs.view(B, 4, 4)
-        ref_seq_log_probs = ref_seq_log_probs.view(B, 4, 4)
-        pi_target = pi_target.view(B, 4, 4)
+        policy_best = seq_log_probs[:, 0::2]
+        policy_worst = seq_log_probs[:, 1::2]
+        ref_best = ref_seq_log_probs[:, 0::2]
+        ref_worst = ref_seq_log_probs[:, 1::2]
 
-        dim_weights = torch.full((4,), 1.0 / 4, device=seq_log_probs.device)
-        aggregated = (dim_weights.view(1, 4, 1) * pi_target).sum(dim=1)
-        best_idx = aggregated.argmax(dim=1)
-        worst_idx = aggregated.argmin(dim=1)
-
-        best_idx_exp = best_idx.view(B, 1, 1).expand(-1, 4, 1)
-        worst_idx_exp = worst_idx.view(B, 1, 1).expand(-1, 4, 1)
-
-        policy_best = torch.gather(seq_log_probs, 2, best_idx_exp).squeeze(2)
-        policy_worst = torch.gather(seq_log_probs, 2, worst_idx_exp).squeeze(2)
-        ref_best = torch.gather(ref_seq_log_probs, 2, best_idx_exp).squeeze(2)
-        ref_worst = torch.gather(ref_seq_log_probs, 2, worst_idx_exp).squeeze(2)
-
-        policy_best_agg = (dim_weights * policy_best).sum(dim=1)
-        policy_worst_agg = (dim_weights * policy_worst).sum(dim=1)
-        ref_best_agg = (dim_weights * ref_best).sum(dim=1)
-        ref_worst_agg = (dim_weights * ref_worst).sum(dim=1)
-
-        pi_logratios = policy_best_agg - policy_worst_agg
-        ref_logratios = ref_best_agg - ref_worst_agg
+        pi_logratios = policy_best - policy_worst
+        ref_logratios = ref_best - ref_worst
         logits = pi_logratios - ref_logratios
         losses = -F.logsigmoid(self.beta * logits)
 
