@@ -280,7 +280,7 @@ class CustomDPOTrainer(DPOTrainer):
         r"""Subclass and override to accept extra kwargs."""
         if self.loss_type == "lambda_dpo":
             return self._compute_lambda_dpo_loss(model, inputs, return_outputs)
-        if self.loss_type == "dpo" and "pi_target" in inputs:
+        if self.loss_type == "sigmoid" and "pi_target" in inputs:
             return self._compute_ultra_dpo_loss(model, inputs, return_outputs)
         return super().compute_loss(model, inputs, return_outputs)
 
