@@ -290,15 +290,22 @@ class CustomDPOTrainer(DPOTrainer):
         labels = inputs["labels"]
         pi_target = inputs["pi_target"]
 
-        chunk_size = self.lambda_dpo_chunk_size or input_ids.size(0)
+        B = input_ids.size(0) // 16
+        seq_len = input_ids.size(1)
+
+        ids_view = input_ids.view(B, 16, seq_len)[:, :4, :].reshape(B * 4, seq_len)
+        mask_view = attention_mask.view(B, 16, seq_len)[:, :4, :].reshape(B * 4, seq_len)
+        labels_view = labels.view(B, 16, seq_len)[:, :4, :].reshape(B * 4, seq_len)
+
+        chunk_size = self.lambda_dpo_chunk_size or ids_view.size(0)
 
         seq_log_probs_list = []
         ref_seq_log_probs_list = []
-        for start in range(0, input_ids.size(0), chunk_size):
+        for start in range(0, ids_view.size(0), chunk_size):
             end = start + chunk_size
-            chunk_ids = input_ids[start:end]
-            chunk_mask = attention_mask[start:end]
-            chunk_labels = labels[start:end]
+            chunk_ids = ids_view[start:end]
+            chunk_mask = mask_view[start:end]
+            chunk_labels = labels_view[start:end]
 
             logits = model(input_ids=chunk_ids, attention_mask=chunk_mask).logits
             log_probs = F.log_softmax(logits[:, :-1], dim=-1)
@@ -322,8 +329,10 @@ class CustomDPOTrainer(DPOTrainer):
         seq_log_probs = torch.cat(seq_log_probs_list, dim=0)
         ref_seq_log_probs = torch.cat(ref_seq_log_probs_list, dim=0)
 
+        seq_log_probs = seq_log_probs.view(B, 4).unsqueeze(1).expand(B, 4, 4).reshape(-1)
+        ref_seq_log_probs = ref_seq_log_probs.view(B, 4).unsqueeze(1).expand(B, 4, 4).reshape(-1)
+
         r_theta = self.beta * (seq_log_probs - ref_seq_log_probs)
-        B = input_ids.size(0) // 16
         r_theta = r_theta.view(B, 4, 4)
         pi_target = pi_target.view(B, 4, 4)
 
