@@ -43,8 +43,13 @@ def run_dpo(
     dataset_module = get_dataset(template, model_args, data_args, training_args, stage="rm", **tokenizer_module)
     model = load_model(tokenizer, model_args, finetuning_args, training_args.do_train)
 
-    # Dynamically choose collator based on pref_loss
-    if finetuning_args.pref_loss == "lambda_dpo":
+    # Dynamically choose collator based on dataset structure. UltraFeedback
+    # listwise data provides ``pi_target`` columns and requires the specialised
+    # listwise collator even when training with the standard DPO loss.
+    train_dataset = dataset_module.get("train_dataset")
+    is_listwise = hasattr(train_dataset, "column_names") and "pi_target" in getattr(train_dataset, "column_names")
+
+    if is_listwise:
         from ...data import ListwiseDataCollatorWithPadding
         data_collator = ListwiseDataCollatorWithPadding(
             template=template,
