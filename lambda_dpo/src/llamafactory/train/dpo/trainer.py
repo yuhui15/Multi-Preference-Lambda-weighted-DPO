@@ -280,9 +280,8 @@ class CustomDPOTrainer(DPOTrainer):
         r"""Subclass and override to accept extra kwargs."""
         if self.loss_type == "lambda_dpo":
             return self._compute_lambda_dpo_loss(model, inputs, return_outputs)
-        if self.loss_type == "dpo" and "pi_target" in inputs:
-            return self._compute_ultra_dpo_loss(model, inputs, return_outputs)
-        return super().compute_loss(model, inputs, return_outputs)
+        else:
+            return super().compute_loss(model, inputs, return_outputs)
 
     def _compute_lambda_dpo_loss(self, model, inputs, return_outputs):
         input_ids = inputs["input_ids"]
@@ -342,78 +341,6 @@ class CustomDPOTrainer(DPOTrainer):
 
         if return_outputs:
             return final_loss, {"loss_components": listwise_losses}
-        return final_loss
-
-    def _compute_ultra_dpo_loss(self, model, inputs, return_outputs):
-        """Compute pairwise DPO loss for the UltraFeedback listwise dataset."""
-        input_ids = inputs["input_ids"]
-        attention_mask = inputs["attention_mask"]
-        labels = inputs["labels"]
-        pi_target = inputs["pi_target"]
-
-        chunk_size = self.lambda_dpo_chunk_size or input_ids.size(0)
-
-        seq_log_probs_list = []
-        ref_seq_log_probs_list = []
-        for start in range(0, input_ids.size(0), chunk_size):
-            end = start + chunk_size
-            chunk_ids = input_ids[start:end]
-            chunk_mask = attention_mask[start:end]
-            chunk_labels = labels[start:end]
-
-            logits = model(input_ids=chunk_ids, attention_mask=chunk_mask).logits
-            log_probs = F.log_softmax(logits[:, :-1], dim=-1)
-            labels_shifted = chunk_labels[:, 1:].clone()
-            mask = labels_shifted != self.label_pad_token_id
-            labels_shifted[labels_shifted == self.label_pad_token_id] = 0
-            label_log_probs = torch.gather(log_probs, dim=2, index=labels_shifted.unsqueeze(-1)).squeeze(-1)
-            seq_lp = (label_log_probs * mask).sum(dim=1) / mask.sum(dim=1)
-            seq_log_probs_list.append(seq_lp)
-
-            with torch.no_grad():
-                if self.finetuning_args.use_ref_model and self.ref_model is not None:
-                    ref_logits = self.ref_model(input_ids=chunk_ids, attention_mask=chunk_mask).logits
-                    ref_log_probs = F.log_softmax(ref_logits[:, :-1], dim=-1)
-                    ref_label_log_probs = torch.gather(ref_log_probs, dim=2, index=labels_shifted.unsqueeze(-1)).squeeze(-1)
-                    ref_lp = (ref_label_log_probs * mask).sum(dim=1) / mask.sum(dim=1)
-                else:
-                    ref_lp = torch.zeros_like(seq_lp)
-            ref_seq_log_probs_list.append(ref_lp)
-
-        seq_log_probs = torch.cat(seq_log_probs_list, dim=0)
-        ref_seq_log_probs = torch.cat(ref_seq_log_probs_list, dim=0)
-
-        B = input_ids.size(0) // 16
-        seq_log_probs = seq_log_probs.view(B, 4, 4)
-        ref_seq_log_probs = ref_seq_log_probs.view(B, 4, 4)
-        pi_target = pi_target.view(B, 4, 4)
-
-        dim_weights = torch.full((4,), 1.0 / 4, device=seq_log_probs.device)
-        aggregated = (dim_weights.view(1, 4, 1) * pi_target).sum(dim=1)
-        best_idx = aggregated.argmax(dim=1)
-        worst_idx = aggregated.argmin(dim=1)
-
-        best_idx_exp = best_idx.view(B, 1, 1).expand(-1, 4, 1)
-        worst_idx_exp = worst_idx.view(B, 1, 1).expand(-1, 4, 1)
-
-        policy_best = torch.gather(seq_log_probs, 2, best_idx_exp).squeeze(2)
-        policy_worst = torch.gather(seq_log_probs, 2, worst_idx_exp).squeeze(2)
-        ref_best = torch.gather(ref_seq_log_probs, 2, best_idx_exp).squeeze(2)
-        ref_worst = torch.gather(ref_seq_log_probs, 2, worst_idx_exp).squeeze(2)
-
-        policy_best_agg = (dim_weights * policy_best).sum(dim=1)
-        policy_worst_agg = (dim_weights * policy_worst).sum(dim=1)
-        ref_best_agg = (dim_weights * ref_best).sum(dim=1)
-        ref_worst_agg = (dim_weights * ref_worst).sum(dim=1)
-
-        pi_logratios = policy_best_agg - policy_worst_agg
-        ref_logratios = ref_best_agg - ref_worst_agg
-        logits = pi_logratios - ref_logratios
-        losses = -F.logsigmoid(self.beta * logits)
-
-        final_loss = losses.mean()
-        if return_outputs:
-            return final_loss, [losses]
         return final_loss
 
     @override
