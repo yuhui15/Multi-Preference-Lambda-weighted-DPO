@@ -218,9 +218,35 @@ class Template:
             logger.info_rank0(f"Add pad token: {tokenizer.pad_token}")
 
         if stop_words:
-            num_added_tokens = tokenizer.add_special_tokens(
-                dict(additional_special_tokens=stop_words), replace_additional_special_tokens=False
-            )
+            try:
+                num_added_tokens = tokenizer.add_special_tokens(
+                    dict(additional_special_tokens=stop_words),
+                    replace_additional_special_tokens=False,
+                )
+            except ValueError as e:
+                if "unknown special tokens" in str(e).lower():
+                    vocab = getattr(tokenizer, "get_vocab", lambda: None)()
+                    tokens_to_add = []
+                    for token in stop_words:
+                        if vocab and token in vocab:
+                            continue
+                        if tokenizer.convert_tokens_to_ids(token) == tokenizer.unk_token_id:
+                            tokens_to_add.append(token)
+                    if tokens_to_add:
+                        try:
+                            tokenizer.add_tokens(tokens_to_add, special_tokens=False)
+                            num_added_tokens = len(tokens_to_add)
+                        except ValueError as e2:
+                            logger.warning_rank0(
+                                f"Cannot add stop words due to tokenizer restrictions: {e2}"
+                            )
+                            num_added_tokens = 0
+                    else:
+                        num_added_tokens = 0
+                    existing = getattr(tokenizer, "additional_special_tokens", [])
+                    tokenizer.additional_special_tokens = list(dict.fromkeys(existing + stop_words))
+                else:
+                    raise
             logger.info_rank0("Add {} to stop words.".format(",".join(stop_words)))
             if num_added_tokens > 0:
                 logger.warning_rank0("New tokens have been added, make sure `resize_vocab` is True.")
