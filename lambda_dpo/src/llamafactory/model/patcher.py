@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 from peft import PeftModel
 from transformers import PreTrainedModel, PreTrainedTokenizerBase
+from transformers.generation.utils import GenerationMixin
 from transformers.integrations import is_deepspeed_zero3_enabled
 from transformers.modeling_utils import is_fsdp_enabled
 
@@ -181,7 +182,10 @@ def patch_model(
     if getattr(model.config, "model_type", None) not in ["minicpmv", "minicpmo"] and "GenerationMixin" not in str(
         model.generate.__func__
     ):
-        model.generate = MethodType(PreTrainedModel.generate, model)
+        generate_fn = getattr(PreTrainedModel, "generate", None)
+        if generate_fn is None:
+            generate_fn = GenerationMixin.generate
+        model.generate = MethodType(generate_fn, model)
 
     if add_valuehead:
         prepare_valuehead_model(model)
