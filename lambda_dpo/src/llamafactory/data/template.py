@@ -171,7 +171,18 @@ class Template:
             return
 
         is_added = tokenizer.eos_token_id is None
-        num_added_tokens = tokenizer.add_special_tokens({"eos_token": eos_token})
+        try:
+            num_added_tokens = tokenizer.add_special_tokens({"eos_token": eos_token})
+        except ValueError as e:  # some tokenizers forbid adding unknown specials
+            if "unknown special tokens" in str(e).lower():
+                vocab = getattr(tokenizer, "get_vocab", lambda: None)()
+                if vocab and eos_token in vocab:
+                    tokenizer.eos_token = eos_token
+                    num_added_tokens = 0
+                else:
+                    raise
+            else:
+                raise
 
         if is_added:
             logger.info_rank0(f"Add eos token: {tokenizer.eos_token}.")
