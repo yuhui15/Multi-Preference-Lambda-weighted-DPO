@@ -12,7 +12,7 @@ pref_beta: 0.1
 # This example trains on the listwise UltraFeedback dataset. The workflow
 # automatically detects the listwise structure and uses the appropriate
 # collator, so we keep the standard DPO loss here.
-pref_loss: lambda_dpo  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
+pref_loss: sigmoid  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
 
 ### dataset
 dataset: ultrafeedback_listwise
