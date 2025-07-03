@@ -180,7 +180,8 @@ class Template:
                     tokenizer.eos_token = eos_token
                     num_added_tokens = 0
                 else:
-                    raise
+                    num_added_tokens = tokenizer.add_tokens([eos_token], special_tokens=False)
+                    tokenizer.eos_token = eos_token
             else:
                 raise
 
