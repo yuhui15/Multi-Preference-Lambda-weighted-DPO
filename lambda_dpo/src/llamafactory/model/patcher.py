@@ -62,10 +62,22 @@ def patch_tokenizer(tokenizer: "PreTrainedTokenizer", model_args: "ModelArgument
             logger.warning_rank0("New tokens have been added, changed `resize_vocab` to True.")
 
     if model_args.add_special_tokens is not None:
-        num_added_special_tokens = tokenizer.add_tokens(new_tokens=model_args.add_special_tokens, special_tokens=True)
-        logger.info_rank0(
-            "Add special tokens {} to tokenizer's vocabulary.".format(",".join(model_args.add_special_tokens))
-        )
+        try:
+            num_added_special_tokens = tokenizer.add_tokens(
+                new_tokens=model_args.add_special_tokens, special_tokens=True
+            )
+            logger.info_rank0(
+                "Add special tokens {} to tokenizer's vocabulary.".format(",".join(model_args.add_special_tokens))
+            )
+        except ValueError as e:  # some tokenizers (e.g. Qwen) forbid unknown special tokens
+            logger.warning_rank0(f"{e}. Adding them as normal tokens instead to keep compatibility.")
+            num_added_special_tokens = tokenizer.add_tokens(
+                new_tokens=model_args.add_special_tokens, special_tokens=False
+            )
+            logger.info_rank0(
+                "Add tokens {} to tokenizer's vocabulary.".format(",".join(model_args.add_special_tokens))
+            )
+
         if num_added_special_tokens > 0 and not model_args.resize_vocab:
             model_args.resize_vocab = True
             logger.warning_rank0("New special tokens have been added, changed `resize_vocab` to True.")
