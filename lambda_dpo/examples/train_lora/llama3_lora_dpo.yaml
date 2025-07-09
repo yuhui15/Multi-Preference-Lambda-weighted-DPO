@@ -1,22 +1,24 @@
 ### model
-model_name_or_path: meta-llama/Llama-3.2-1B-Instruct
+model_name_or_path: meta-llama/Llama-3.2-1B
 trust_remote_code: true
 
 ### method
 stage: dpo
 do_train: true
-finetuning_type: full
+finetuning_type: lora
+lora_rank: 8
+lora_target: all
 pref_beta: 0.1
 # This example trains on the listwise UltraFeedback dataset. The workflow
 # automatically detects the listwise structure and uses the appropriate
 # collator, so we keep the standard DPO loss here.
-pref_loss: sigmoid  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
+pref_loss: lambda_dpo  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
 
 ### dataset
 dataset: ultrafeedback_listwise
 template: llama3
 cutoff_len: 2048
-max_samples: 60000
+max_samples: 2000
 overwrite_cache: true
 preprocessing_num_workers: 1
 dataloader_num_workers: 1
