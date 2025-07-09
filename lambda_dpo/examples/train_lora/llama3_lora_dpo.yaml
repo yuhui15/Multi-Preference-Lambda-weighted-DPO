@@ -16,7 +16,7 @@ pref_loss: sigmoid  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
 dataset: ultrafeedback_listwise
 template: llama3
 cutoff_len: 2048
-max_samples: 10
+max_samples: 60000
 overwrite_cache: true
 preprocessing_num_workers: 1
 dataloader_num_workers: 1
