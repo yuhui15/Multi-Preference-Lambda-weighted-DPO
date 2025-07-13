@@ -21,6 +21,8 @@ from contextlib import nullcontext
 from types import MethodType
 from typing import TYPE_CHECKING, Literal, Optional, Union
 
+from .lambda_scheduler import TableLambdaScheduler
+
 import torch
 import torch.nn.functional as F
 from transformers import Trainer
@@ -73,6 +75,7 @@ class CustomDPOTrainer(DPOTrainer):
 
         self.ref_model = ref_model
         self._stored_metrics = defaultdict(lambda: defaultdict(list))
+        self.lambda_scheduler = TableLambdaScheduler()
 
         # dpo hyperparams
         self.beta = finetuning_args.pref_beta
@@ -346,9 +349,7 @@ class CustomDPOTrainer(DPOTrainer):
             loss = -(p * log_softmaxed).sum(dim=1).mean()
             listwise_losses.append(loss)
 
-        num_losses = len(listwise_losses)
-        weights = torch.ones(num_losses, device=input_ids.device)
-        weights /= weights.sum()
+        weights = self.lambda_scheduler.sample().to(input_ids.device)
         final_loss = sum(w * l for w, l in zip(weights, listwise_losses))
 
         if return_outputs:
