@@ -283,8 +283,8 @@ class CustomDPOTrainer(DPOTrainer):
         r"""Subclass and override to accept extra kwargs."""
         if self.loss_type == "lambda_dpo":
             return self._compute_lambda_dpo_loss(model, inputs, return_outputs)
-        if self.loss_type == "sigmoid" and "pi_target" in inputs:
-            return self._compute_ultra_dpo_loss(model, inputs, return_outputs)
+        if self.loss_type in ["sigmoid", "orpo", "simpo"] and "pi_target" in inputs:
+            return self._compute_ultrafb_preference_loss(model, inputs, return_outputs)
         return super().compute_loss(model, inputs, return_outputs)
 
     def _compute_lambda_dpo_loss(self, model, inputs, return_outputs):
@@ -356,8 +356,8 @@ class CustomDPOTrainer(DPOTrainer):
             return final_loss, {"loss_components": listwise_losses}
         return final_loss
 
-    def _compute_ultra_dpo_loss(self, model, inputs, return_outputs):
-        """Compute DPO loss for the UltraFeedback listwise dataset."""
+    def _compute_ultrafb_preference_loss(self, model, inputs, return_outputs):
+        """Compute preference loss for the UltraFeedback listwise dataset."""
         input_ids = inputs["input_ids"]
         attention_mask = inputs["attention_mask"]
         labels = inputs["labels"]
