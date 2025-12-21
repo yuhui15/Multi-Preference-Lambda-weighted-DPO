@@ -62,6 +62,20 @@ llamafactory-cli train examples/train_lora/llama3_lora_dpo.yaml
 Use `--shuffle_block_size 16` to randomly shuffle training data in 16-example
 blocks while preserving listwise groups.
 
+### DeepSpeed requirement for full-parameter configs
+
+When using full-parameter configuration files that include a `deepspeed` field
+(for example `examples/train_full/llama3_8b_full_sft.yaml`), install a
+DeepSpeed build that matches your CUDA/PyTorch version **before** running
+`llamafactory-cli` or `torchrun`:
+
+```bash
+pip install "deepspeed>=0.15.0,<0.17.0"
+```
+
+Install from your current Python environment so DeepSpeed is compiled against
+the correct CUDA toolchain.
+
 This repository uses a slightly modified version of **LlamaFactory**:
 
 - **ListwiseDataCollatorWithPadding** – pads batches composed of one or more
