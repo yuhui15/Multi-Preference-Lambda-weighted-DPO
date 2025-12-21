@@ -57,7 +57,7 @@ huggingface-cli login
 pip install -e ".[torch,metrics]" --no-build-isolation
 
 llamafactory-cli train examples/train_lora/llama3_lora_dpo.yaml
-FORCE_TORCHRUN=1 llamafactory-cli train examples/train_full/llama3_8b_full_sft.yaml
+llamafactory-cli train examples/train_full/llama3_8b_full_dpo.yaml
 ```
 
 Use `--shuffle_block_size 16` to randomly shuffle training data in 16-example
