@@ -152,6 +152,9 @@ llamafactory-cli train examples/train_qlora/llama3_lora_sft_aqlm.yaml
 
 ### 全参数微调
 
+> [!IMPORTANT]
+> 使用包含 `deepspeed` 字段的全参数配置（如 `examples/train_full/llama3_8b_full_sft.yaml`）时，请先在当前 Python 环境中安装与 CUDA/PyTorch 版本匹配的 DeepSpeed（例如 `pip install "deepspeed>=0.15.0,<0.17.0"`），然后再执行 `llamafactory-cli` 或 `torchrun`。如果暂时不使用 DeepSpeed，可在对应 yaml 中注释或移除 `deepspeed` 字段，改用普通 DDP 或单卡运行后重新启动训练。
+
 #### 在单机上进行指令监督微调
 
 ```bash
