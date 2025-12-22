@@ -8,7 +8,7 @@ do_train: true
 finetuning_type: full
 deepspeed: examples/deepspeed/ds_z3_config.json  # choices: [ds_z0_config.json, ds_z2_config.json, ds_z3_config.json]
 # 如未安装 DeepSpeed，可注释此行改用普通 DDP/单卡运行
-pref_loss: lambda_dpo  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
+pref_loss: sigmoid  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
 pref_beta: 0.1
 
 ### dataset
