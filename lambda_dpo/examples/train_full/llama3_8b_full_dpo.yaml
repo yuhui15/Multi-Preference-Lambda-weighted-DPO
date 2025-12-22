@@ -1,5 +1,5 @@
 ### model
-model_name_or_path: data7t/huggingface/hub/models--meta-llama--Llama-2-7b-hf/snapshots/01c7f73d771dfac7d292323805ebc428287df4f9
+model_name_or_path: /data7t/huggingface/hub/models--meta-llama--Llama-2-7b-hf/snapshots/01c7f73d771dfac7d292323805ebc428287df4f9
 trust_remote_code: true
 
 ### method
