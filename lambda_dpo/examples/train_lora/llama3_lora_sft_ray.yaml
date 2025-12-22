@@ -22,7 +22,7 @@ dataloader_num_workers: 4
 ### output
 output_dir: tmp_dir
 logging_steps: 10
-save_steps: 200
+save_steps: 500
 plot_loss: true
 overwrite_output_dir: true
 save_only_model: true
