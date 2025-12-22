@@ -56,8 +56,17 @@ huggingface-cli login
 
 pip install -e ".[torch,metrics]" --no-build-isolation
 
-llamafactory-cli train examples/train_lora/llama3_lora_dpo.yaml
+# Choose a training recipe (run from the `lambda_dpo` directory):
+# Lambda DPO
+llamafactory-cli train examples/train_full/llama3_8b_full_lambdadpo.yaml
+# ORPO
+llamafactory-cli train examples/train_full/llama3_8b_full_orpo.yaml
+# SimPO
+llamafactory-cli train examples/train_full/llama3_8b_full_simpo.yaml
+# Standard DPO
 llamafactory-cli train examples/train_full/llama3_8b_full_dpo.yaml
+# LoRA DPO fine-tuning
+llamafactory-cli train examples/train_lora/llama3_lora_dpo.yaml
 ```
 
 Use `--shuffle_block_size 16` to randomly shuffle training data in 16-example
