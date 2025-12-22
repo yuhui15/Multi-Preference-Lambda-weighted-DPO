@@ -3,6 +3,7 @@ model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
 quantization_bit: 4  # choices: [8 (bnb/hqq/eetq), 4 (bnb/hqq), 3 (hqq), 2 (hqq)]
 quantization_method: bnb  # choices: [bnb, hqq, eetq]
 trust_remote_code: true
+dave_only_model: true
 
 ### method
 stage: sft
