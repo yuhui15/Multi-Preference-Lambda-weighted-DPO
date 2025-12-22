@@ -21,3 +21,4 @@ tokenized_path: saves/llama3-8b/dataset/sft
 ### output
 output_dir: saves/llama3-8b/lora/sft
 overwrite_output_dir: true
+save_only_model: true

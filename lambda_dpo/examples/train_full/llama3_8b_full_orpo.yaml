@@ -26,6 +26,7 @@ logging_steps: 10
 save_steps: 50
 plot_loss: true
 overwrite_output_dir: true
+save_only_model: true
 report_to: none  # choices: [none, wandb, tensorboard, swanlab, mlflow]
 
 ### train
