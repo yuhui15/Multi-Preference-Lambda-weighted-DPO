@@ -3,6 +3,7 @@
 ### model
 model_name_or_path: meta-llama/Llama-4-Scout-17B-16E-Instruct
 trust_remote_code: true
+dave_only_model: true
 
 ### method
 stage: sft

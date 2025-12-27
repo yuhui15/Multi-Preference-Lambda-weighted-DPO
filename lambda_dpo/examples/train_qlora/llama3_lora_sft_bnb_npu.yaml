@@ -4,6 +4,7 @@ quantization_bit: 4
 quantization_method: bnb
 double_quantization: false
 trust_remote_code: true
+dave_only_model: true
 
 ### method
 stage: sft
