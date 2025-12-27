@@ -9,10 +9,7 @@ finetuning_type: lora
 lora_rank: 8
 lora_target: all
 pref_beta: 0.1
-# This example trains on the listwise UltraFeedback dataset. The workflow
-# automatically detects the listwise structure and uses the appropriate
-# collator, so we keep the standard DPO loss here.
-pref_loss: sigmoid  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
+pref_loss: orpo  # choices: [sigmoid (dpo), orpo, simpo, lambda_dpo]
 
 ### dataset
 dataset: ultrafeedback_listwise
@@ -24,7 +21,7 @@ preprocessing_num_workers: 1
 dataloader_num_workers: 1
 
 ### output
-output_dir: saves/llama3.2-1b/lora/dpo
+output_dir: saves/llama3.2-1b/lora/orpo
 logging_steps: 10
 save_steps: 500
 plot_loss: true
