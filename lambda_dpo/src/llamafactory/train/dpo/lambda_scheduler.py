@@ -12,7 +12,7 @@ class TableLambdaScheduler:
     #: Fixed set of λ vectors and their associated sampling probabilities.
     #: For uniform weighting, we only keep a single entry.
     TABLE: Sequence[Tuple[Sequence[float], float]] = (
-        ([0.0, 0.0, 1.0, 0.0], 1.0),
+        ([0.0, 0.0, 0.0, 1.0], 1.0),
     )
 
     def __init__(self, seed: int = 42) -> None:
